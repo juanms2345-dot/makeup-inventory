@@ -72,7 +72,7 @@ export default function App() {
 
   return (
     <div style={{ padding: '2rem', fontFamily: 'sans-serif', maxWidth: '900px', margin: '0 auto' }}>
-      <h1 style={{ color: '#7FFFD4' }}> BIENVENIDOS A 💄MAKEUP - Inventario</h1>
+      <h1 style={{ color: 'green' }}> BIENVENIDOS A 💄MAKEUP - Inventario</h1>
       
       {/* Formulario de registro */}
       <div style={{ background: '#f9fafb', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem', border: '1px solid #e5e7eb' }}>
