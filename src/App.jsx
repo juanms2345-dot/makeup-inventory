@@ -76,7 +76,7 @@ export default function App() {
       
       {/* Formulario de registro */}
       <div style={{ background: '#f9fafb', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem', border: '1px solid #e5e7eb' }}>
-        <h3>Agregar Nuevo Producto</h3>
+        <h3>añadir producto</h3>
         <form onSubmit={handleAgregar} style={{ display: 'grid', gap: '1rem', gridTemplateColumns: '1fr 1fr' }}>
           <input 
             type="text" 
