@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
 
 // Variables de entorno de Supabase
@@ -16,10 +16,6 @@ export default function App() {
   const [precioVenta, setPrecioVenta] = useState('')
   const [categoria, setCategoria] = useState('')
 
-  // Estados para la paginación (Máximo 10 por página)
-  const [paginaActual, setPaginaActual] = useState(1)
-  const productosPorPagina = 10
-
   useEffect(() => {
     fetchProductos()
   }, [])
@@ -27,7 +23,7 @@ export default function App() {
   async function fetchProductos() {
     setLoading(true)
     try {
-      const { data, error } = await supabase.from('productos').select('*').order('id', { ascending: false })
+      const { data, error } = await supabase.from('productos').select('*')
       if (error) throw error
       setProductos(data || [])
     } catch (err) {
@@ -57,7 +53,6 @@ export default function App() {
       setStock('')
       setPrecioVenta('')
       setCategoria('')
-      setPaginaActual(1) // Volver a la primera página al agregar
       fetchProductos()
     } catch (err) {
       alert('Error al guardar: ' + err.message)
@@ -74,12 +69,6 @@ export default function App() {
       alert('Error al eliminar: ' + err.message)
     }
   }
-
-  // Cálculo de lógica de paginación
-  const indiceUltimoProducto = paginaActual * productosPorPagina
-  const indicePrimerProducto = indiceUltimoProducto - productosPorPagina
-  const productosActuales = productos.slice(indicePrimerProducto, indiceUltimoProducto)
-  const totalPaginas = Math.ceil(productos.length / productosPorPagina)
 
   return (
     <div style={{ padding: '2rem', fontFamily: 'sans-serif', maxWidth: '900px', margin: '0 auto' }}>
@@ -132,82 +121,41 @@ export default function App() {
 
       {/* Tabla de Productos */}
       <div>
-        <h3>Lista de Inventario ({productos.length} productos)</h3>
+        <h3>Lista de Inventario</h3>
         {loading ? (
           <p>Cargando inventario...</p>
         ) : productos.length === 0 ? (
           <p>No hay productos registrados en el inventario.</p>
         ) : (
-          <>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-              <thead>
-                <tr style={{ background: '#f3f4f6', borderBottom: '2px solid #e5e7eb' }}>
-                  <th style={{ padding: '0.75rem' }}>Nombre</th>
-                  <th style={{ padding: '0.75rem' }}>Categoría</th>
-                  <th style={{ padding: '0.75rem' }}>Stock</th>
-                  <th style={{ padding: '0.75rem' }}>Precio</th>
-                  <th style={{ padding: '0.75rem' }}>Acciones</th>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ background: '#f3f4f6', borderBottom: '2px solid #e5e7eb' }}>
+                <th style={{ padding: '0.75rem' }}>Nombre</th>
+                <th style={{ padding: '0.75rem' }}>Categoría</th>
+                <th style={{ padding: '0.75rem' }}>Stock</th>
+                <th style={{ padding: '0.75rem' }}>Precio</th>
+                <th style={{ padding: '0.75rem' }}>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {productos.map((prod) => (
+                <tr key={prod.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                  <td style={{ padding: '0.75rem' }}>{prod.nombre}</td>
+                  <td style={{ padding: '0.75rem' }}>{prod.categoria || 'N/A'}</td>
+                  <td style={{ padding: '0.75rem' }}>{prod.stock}</td>
+                  <td style={{ padding: '0.75rem' }}>${prod.precio_venta}</td>
+                  <td style={{ padding: '0.75rem' }}>
+                    <button 
+                      onClick={() => handleEliminar(prod.id)}
+                      style={{ background: '#ef4444', color: 'white', border: 'none', padding: '0.25rem 0.5rem', borderRadius: '4px', cursor: 'pointer' }}
+                    >
+                      Eliminar
+                    </button>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {productosActuales.map((prod) => (
-                  <tr key={prod.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                    <td style={{ padding: '0.75rem' }}>{prod.nombre}</td>
-                    <td style={{ padding: '0.75rem' }}>{prod.categoria || 'N/A'}</td>
-                    <td style={{ padding: '0.75rem' }}>{prod.stock}</td>
-                    <td style={{ padding: '0.75rem' }}>${prod.precio_venta}</td>
-                    <td style={{ padding: '0.75rem' }}>
-                      <button 
-                        onClick={() => handleEliminar(prod.id)}
-                        style={{ background: '#ef4444', color: 'white', border: 'none', padding: '0.25rem 0.5rem', borderRadius: '4px', cursor: 'pointer' }}
-                      >
-                        Eliminar
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            {/* Controles de Paginación */}
-            {totalPaginas > 1 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem' }}>
-                <button
-                  onClick={() => setPaginaActual((prev) => Math.max(prev - 1, 1))}
-                  disabled={paginaActual === 1}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    background: paginaActual === 1 ? '#e5e7eb' : '#d97706',
-                    color: paginaActual === 1 ? '#9ca3af' : 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: paginaActual === 1 ? 'not-allowed' : 'pointer'
-                  }}
-                >
-                  Anterior
-                </button>
-
-                <span>
-                  Página <strong>{paginaActual}</strong> de <strong>{totalPaginas}</strong>
-                </span>
-
-                <button
-                  onClick={() => setPaginaActual((prev) => Math.min(prev + 1, totalPaginas))}
-                  disabled={paginaActual === totalPaginas}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    background: paginaActual === totalPaginas ? '#e5e7eb' : '#d97706',
-                    color: paginaActual === totalPaginas ? '#9ca3af' : 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: paginaActual === totalPaginas ? 'not-allowed' : 'pointer'
-                  }}
-                >
-                  Siguiente
-                </button>
-              </div>
-            )}
-          </>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
     </div>
