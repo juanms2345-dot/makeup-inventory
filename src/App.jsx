@@ -83,7 +83,7 @@ export default function App() {
     }
   }
 
-  // Cargar datos en el formulario para EDITAR un producto existente
+  // Cargar datos en el formulario para EDITAR
   function iniciarEdicion(prod) {
     setProductoEditando(prod.id)
     setNombre(prod.nombre || '')
@@ -123,7 +123,6 @@ export default function App() {
 
     try {
       if (productoEditando) {
-        // Actualizar producto existente
         const { error } = await supabase
           .from('productos')
           .update(datosProducto)
@@ -131,7 +130,6 @@ export default function App() {
         if (error) throw error
         alert('✏️ Producto actualizado correctamente')
       } else {
-        // Insertar nuevo producto
         const { error } = await supabase.from('productos').insert([datosProducto])
         if (error) throw error
         alert('✨ Nuevo producto creado exitosamente')
@@ -188,7 +186,7 @@ export default function App() {
 
   const totalCarrito = carrito.reduce((t, i) => t + i.precio_venta * i.cantidad, 0)
 
-  // Registrar Venta (Descuento automático de stock)
+  // Registrar Venta Manual desde el Admin
   const registrarVenta = async () => {
     if (carrito.length === 0) return
     if (!clienteSeleccionado) return alert('Por favor selecciona un cliente')
@@ -201,7 +199,6 @@ export default function App() {
     else if (abono > 0) estado = 'Abonado'
 
     try {
-      // Actualizar stock de productos vendidos
       for (const item of carrito) {
         const nuevoStock = Math.max(item.stock - item.cantidad, 0)
         await supabase.from('productos').update({ stock: nuevoStock }).eq('id', item.id)
@@ -246,6 +243,11 @@ export default function App() {
     }
   }
 
+  // CÁLCULOS DE MÉTRICAS DE VENTAS
+  const totalVendido = ventas.reduce((acc, v) => acc + (v.total || 0), 0)
+  const totalCobrado = ventas.reduce((acc, v) => acc + (v.monto_pagado || 0), 0)
+  const totalPorCobrar = Math.max(totalVendido - totalCobrado, 0)
+
   // Paginación
   const indiceUltimo = paginaActual * productosPorPagina
   const productosActuales = productos.slice(indiceUltimo - productosPorPagina, indiceUltimo)
@@ -253,7 +255,28 @@ export default function App() {
 
   return (
     <div style={{ padding: '2rem', fontFamily: 'sans-serif', maxWidth: '1200px', margin: '0 auto', minHeight: '100vh' }}>
-      <h1 style={{ color: '#d97706' }}>💄 YAJA MAKEUP - Panel Administrador</h1>
+      <h1 style={{ color: '#d97706', marginBottom: '1rem' }}>💄 YAJA MAKEUP - Panel Administrador</h1>
+
+      {/* TARJETAS DE RESUMEN DE VENTAS Y FINANZAS */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+        <div style={{ background: '#fef3c7', padding: '1.2rem', borderRadius: '10px', border: '1px solid #fcd34d' }}>
+          <h4 style={{ margin: '0 0 0.5rem 0', color: '#b45309' }}>💰 Total Vendido</h4>
+          <span style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#92400e' }}>${totalVendido.toLocaleString()}</span>
+          <p style={{ margin: '0.3rem 0 0 0', fontSize: '0.8rem', color: '#b45309' }}>Ventas Totales Registradas</p>
+        </div>
+
+        <div style={{ background: '#d1fae5', padding: '1.2rem', borderRadius: '10px', border: '1px solid #6ee7b7' }}>
+          <h4 style={{ margin: '0 0 0.5rem 0', color: '#047857' }}>💵 Dinero en Caja / Recaudado</h4>
+          <span style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#065f46' }}>${totalCobrado.toLocaleString()}</span>
+          <p style={{ margin: '0.3rem 0 0 0', fontSize: '0.8rem', color: '#047857' }}>Pagos Directos y Abonos</p>
+        </div>
+
+        <div style={{ background: '#fee2e2', padding: '1.2rem', borderRadius: '10px', border: '1px solid #fca5a5' }}>
+          <h4 style={{ margin: '0 0 0.5rem 0', color: '#b91c1c' }}>📌 Por Cobrar (Fiados)</h4>
+          <span style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#991b1b' }}>${totalPorCobrar.toLocaleString()}</span>
+          <p style={{ margin: '0.3rem 0 0 0', fontSize: '0.8rem', color: '#b91c1c' }}>Deudas pendientes de clientes</p>
+        </div>
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '2.5fr 1fr', gap: '2rem' }}>
         <div>
@@ -261,7 +284,7 @@ export default function App() {
           <div style={{ background: productoEditando ? '#fffbebf0' : '#f9fafb', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem', border: productoEditando ? '2px solid #f59e0b' : '1px solid #e5e7eb' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
               <h3 style={{ margin: 0, color: productoEditando ? '#b45309' : '#111827' }}>
-                {productoEditando ? '✏️ Editando Producto Existing' : '➕ Registrar Nuevo Producto'}
+                {productoEditando ? '✏️ Editando Producto Existente' : '➕ Registrar Nuevo Producto'}
               </h3>
               {productoEditando && (
                 <button onClick={cancelarEdicion} style={{ background: '#6b7280', color: 'white', border: 'none', padding: '0.3rem 0.6rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>
@@ -305,7 +328,6 @@ export default function App() {
 
                   return (
                     <div key={p.id} style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '0.8rem', background: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', position: 'relative' }}>
-                      {/* Botón Eliminar */}
                       <button 
                         onClick={() => handleEliminarProducto(p.id, p.nombre)}
                         title="Eliminar producto"
@@ -346,7 +368,6 @@ export default function App() {
                           💡 <strong>Uso:</strong> {p.descripcion || 'Sin descripción'}
                         </p>
                         
-                        {/* Indicador de Unidades/Stock Restante */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem', marginBottom: '0.5rem', background: '#f3f4f6', padding: '0.3rem 0.5rem', borderRadius: '4px' }}>
                           <span style={{ fontWeight: 'bold', color: '#d97706' }}>${p.precio_venta}</span>
                           <span style={{ fontSize: '0.85rem', color: p.stock <= 0 ? '#dc2626' : p.stock < 3 ? '#d97706' : '#059669', fontWeight: 'bold' }}>
@@ -395,40 +416,52 @@ export default function App() {
             </>
           )}
 
-          <h3>📋 Cuentas y Registro de Ventas</h3>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          {/* TABLA DE HISTORIAL DE VENTAS Y PEDIDOS */}
+          <h3>📋 Historial de Ventas y Pedidos Realizados</h3>
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '0.5rem' }}>
             <thead>
-              <tr style={{ background: '#f3f4f6' }}>
-                <th>Cliente</th><th>Total</th><th>Pagado</th><th>Debe</th><th>Estado</th><th>Abonar</th>
+              <tr style={{ background: '#f3f4f6', textAlign: 'left' }}>
+                <th style={{ padding: '0.5rem' }}>Cliente</th>
+                <th style={{ padding: '0.5rem' }}>Total</th>
+                <th style={{ padding: '0.5rem' }}>Pagado</th>
+                <th style={{ padding: '0.5rem' }}>Debe</th>
+                <th style={{ padding: '0.5rem' }}>Estado</th>
+                <th style={{ padding: '0.5rem' }}>Abonar</th>
               </tr>
             </thead>
             <tbody>
-              {ventas.map((v) => {
-                const debe = v.total - v.monto_pagado
-                return (
-                  <tr key={v.id} style={{ borderBottom: '1px solid #ddd' }}>
-                    <td>{v.clientes?.nombre || 'Cliente'}</td>
-                    <td>${v.total}</td>
-                    <td>${v.monto_pagado}</td>
-                    <td style={{ color: debe > 0 ? '#dc2626' : '#10b981', fontWeight: 'bold' }}>${debe > 0 ? debe : 0}</td>
-                    <td>
-                      <span style={{ 
-                        padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.8rem', color: 'white',
-                        background: v.estado === 'Pagado' ? '#10b981' : v.estado === 'Abonado' ? '#f59e0b' : '#ef4444' 
-                      }}>
-                        {v.estado}
-                      </span>
-                    </td>
-                    <td>
-                      {debe > 0 && (
-                        <button onClick={() => registrarAbono(v)} style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '0.2rem 0.4rem', borderRadius: '4px', cursor: 'pointer' }}>
-                          + Abono
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
+              {ventas.length === 0 ? (
+                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '1rem', color: '#9ca3af' }}>No hay ventas registradas aún.</td></tr>
+              ) : (
+                ventas.map((v) => {
+                  const debe = v.total - v.monto_pagado
+                  return (
+                    <tr key={v.id} style={{ borderBottom: '1px solid #ddd' }}>
+                      <td style={{ padding: '0.5rem', fontWeight: '500' }}>{v.clientes?.nombre || 'Cliente Web / WhatsApp'}</td>
+                      <td style={{ padding: '0.5rem', fontWeight: 'bold' }}>${v.total?.toLocaleString()}</td>
+                      <td style={{ padding: '0.5rem', color: '#059669' }}>${v.monto_pagado?.toLocaleString()}</td>
+                      <td style={{ padding: '0.5rem', color: debe > 0 ? '#dc2626' : '#10b981', fontWeight: 'bold' }}>
+                        ${debe > 0 ? debe.toLocaleString() : 0}
+                      </td>
+                      <td style={{ padding: '0.5rem' }}>
+                        <span style={{ 
+                          padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.8rem', color: 'white', fontWeight: 'bold',
+                          background: v.estado === 'Pagado' ? '#10b981' : v.estado === 'Abonado' ? '#f59e0b' : '#ef4444' 
+                        }}>
+                          {v.estado}
+                        </span>
+                      </td>
+                      <td style={{ padding: '0.5rem' }}>
+                        {debe > 0 && (
+                          <button onClick={() => registrarAbono(v)} style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '0.2rem 0.5rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>
+                            + Abono
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
             </tbody>
           </table>
         </div>
