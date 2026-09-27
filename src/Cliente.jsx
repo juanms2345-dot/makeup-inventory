@@ -92,7 +92,7 @@ export default function Cliente() {
       mensaje += '\n¡Hola! Me gustaría confirmar este pedido.'
 
       // REEMPLAZA ESTE NÚMERO POR TU WHATSAPP REAL CON CÓDIGO DE COLOMBIA 57 (ej: 573001234567)
-      const urlWhatsApp = `https://api.whatsapp.com/send?phone=573000000000&text=${encodeURIComponent(mensaje)}`
+      const urlWhatsApp = `https://api.whatsapp.com/send?phone=573209038396&text=${encodeURIComponent(mensaje)}`
       
       setCarrito([])
       await fetchProductosManual()
