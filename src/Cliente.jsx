@@ -58,7 +58,7 @@ export default function Cliente() {
     mensaje += `\n💰 *Total a Pagar:* $${totalCarrito}\n`
     mensaje += '\n¡Hola! Me gustaría confirmar este pedido.'
 
-    const urlWhatsApp = `https://api.whatsapp.com/send?phone=573000000000&text=${encodeURIComponent(mensaje)}`
+    const urlWhatsApp = `https://api.whatsapp.com/send?phone=573209038396&text=${encodeURIComponent(mensaje)}`
     window.open(urlWhatsApp, '_blank')
   }
 
