@@ -13,7 +13,8 @@ export default function App() {
   const [ventas, setVentas] = useState([])
   const [loading, setLoading] = useState(true)
 
-  // Formulario Productos
+  // Formulario de Registro / Edición de Productos
+  const [productoEditando, setProductoEditando] = useState(null)
   const [nombre, setNombre] = useState('')
   const [stock, setStock] = useState('')
   const [precioVenta, setPrecioVenta] = useState('')
@@ -82,31 +83,61 @@ export default function App() {
     }
   }
 
-  // Guardar Producto
-  async function handleAgregarProducto(e) {
+  // Cargar datos en el formulario para EDITAR un producto existente
+  function iniciarEdicion(prod) {
+    setProductoEditando(prod.id)
+    setNombre(prod.nombre || '')
+    setStock(prod.stock !== undefined ? prod.stock : '')
+    setPrecioVenta(prod.precio_venta || '')
+    setCategoria(prod.categoria || '')
+    setImagenUrl(prod.imagen_url || '')
+    setDescripcion(prod.descripcion || '')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  function cancelarEdicion() {
+    setProductoEditando(null)
+    setNombre('')
+    setStock('')
+    setPrecioVenta('')
+    setCategoria('')
+    setImagenUrl('')
+    setDescripcion('')
+  }
+
+  // Guardar (Crear o Actualizar) Producto
+  async function handleGuardarProducto(e) {
     e.preventDefault()
-    if (!nombre || !stock || !precioVenta) return alert('Por favor llena los campos requeridos')
-    
+    if (!nombre || stock === '' || !precioVenta) return alert('Por favor llena los campos requeridos')
+
     const urlFinal = esUrlValida(imagenUrl) ? imagenUrl : ''
 
+    const datosProducto = {
+      nombre,
+      stock: parseInt(stock),
+      precio_venta: parseFloat(precioVenta),
+      categoria: categoria || 'General',
+      imagen_url: urlFinal,
+      descripcion: descripcion || 'Sin descripción disponible'
+    }
+
     try {
-      const { error } = await supabase.from('productos').insert([
-        {
-          nombre,
-          stock: parseInt(stock),
-          precio_venta: parseFloat(precioVenta),
-          categoria: categoria || 'General',
-          imagen_url: urlFinal,
-          descripcion: descripcion || 'Sin descripción disponible'
-        }
-      ])
-      if (error) throw error
-      setNombre('')
-      setStock('')
-      setPrecioVenta('')
-      setCategoria('')
-      setImagenUrl('')
-      setDescripcion('')
+      if (productoEditando) {
+        // Actualizar producto existente
+        const { error } = await supabase
+          .from('productos')
+          .update(datosProducto)
+          .eq('id', productoEditando)
+        if (error) throw error
+        alert('✏️ Producto actualizado correctamente')
+      } else {
+        // Insertar nuevo producto
+        const { error } = await supabase.from('productos').insert([datosProducto])
+        if (error) throw error
+        alert('✨ Nuevo producto creado exitosamente')
+      }
+
+      cancelarEdicion()
       fetchProductos()
     } catch (err) {
       alert('Error: ' + err.message)
@@ -120,6 +151,7 @@ export default function App() {
       const { error } = await supabase.from('productos').delete().eq('id', id)
       if (error) throw error
       setCarrito((prev) => prev.filter((item) => item.id !== id))
+      if (productoEditando === id) cancelarEdicion()
       fetchProductos()
     } catch (err) {
       alert('Error al eliminar producto: ' + err.message)
@@ -156,7 +188,7 @@ export default function App() {
 
   const totalCarrito = carrito.reduce((t, i) => t + i.precio_venta * i.cantidad, 0)
 
-  // Registrar Venta
+  // Registrar Venta (Descuento automático de stock)
   const registrarVenta = async () => {
     if (carrito.length === 0) return
     if (!clienteSeleccionado) return alert('Por favor selecciona un cliente')
@@ -169,8 +201,9 @@ export default function App() {
     else if (abono > 0) estado = 'Abonado'
 
     try {
+      // Actualizar stock de productos vendidos
       for (const item of carrito) {
-        const nuevoStock = item.stock - item.cantidad
+        const nuevoStock = Math.max(item.stock - item.cantidad, 0)
         await supabase.from('productos').update({ stock: nuevoStock }).eq('id', item.id)
       }
 
@@ -179,7 +212,7 @@ export default function App() {
       ])
       if (error) throw error
 
-      alert('✅ Venta registrada con éxito')
+      alert('✅ Venta registrada y stock actualizado')
       setCarrito([])
       setMontoAbonoInicial('')
       fetchProductos()
@@ -224,16 +257,27 @@ export default function App() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '2.5fr 1fr', gap: '2rem' }}>
         <div>
-          <div style={{ background: '#f9fafb', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid #e5e7eb' }}>
-            <h3>Registrar Nuevo Producto</h3>
-            <form onSubmit={handleAgregarProducto} style={{ display: 'grid', gap: '0.5rem', gridTemplateColumns: '1fr 1fr' }}>
+          {/* Formulario de Registro / Edición de Producto */}
+          <div style={{ background: productoEditando ? '#fffbebf0' : '#f9fafb', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem', border: productoEditando ? '2px solid #f59e0b' : '1px solid #e5e7eb' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <h3 style={{ margin: 0, color: productoEditando ? '#b45309' : '#111827' }}>
+                {productoEditando ? '✏️ Editando Producto Existing' : '➕ Registrar Nuevo Producto'}
+              </h3>
+              {productoEditando && (
+                <button onClick={cancelarEdicion} style={{ background: '#6b7280', color: 'white', border: 'none', padding: '0.3rem 0.6rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                  Cancelar Edición
+                </button>
+              )}
+            </div>
+
+            <form onSubmit={handleGuardarProducto} style={{ display: 'grid', gap: '0.5rem', gridTemplateColumns: '1fr 1fr' }}>
               <input type="text" placeholder="Nombre del producto" value={nombre} onChange={(e) => setNombre(e.target.value)} required />
               <input type="text" placeholder="Categoría (ej. Labiales)" value={categoria} onChange={(e) => setCategoria(e.target.value)} />
-              <input type="number" placeholder="Stock" value={stock} onChange={(e) => setStock(e.target.value)} required />
+              <input type="number" placeholder="Stock disponible" value={stock} onChange={(e) => setStock(e.target.value)} required />
               <input type="number" step="0.01" placeholder="Precio ($)" value={precioVenta} onChange={(e) => setPrecioVenta(e.target.value)} required />
               <input 
                 type="text" 
-                placeholder="URL de la imagen (Link https://...)" 
+                placeholder="URL de la imagen (Ej: https://misitio.com/foto.jpg)" 
                 value={imagenUrl} 
                 onChange={(e) => setImagenUrl(e.target.value)} 
                 style={{ gridColumn: 'span 2' }}
@@ -245,10 +289,13 @@ export default function App() {
                 style={{ gridColumn: 'span 2', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
                 rows={2}
               />
-              <button type="submit" style={{ gridColumn: 'span 2', background: '#d97706', color: 'white', padding: '0.5rem', border: 'none', borderRadius: '4px', fontWeight: 'bold' }}>Guardar Producto</button>
+              <button type="submit" style={{ gridColumn: 'span 2', background: productoEditando ? '#f59e0b' : '#d97706', color: 'white', padding: '0.6rem', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>
+                {productoEditando ? '💾 Actualizar Producto' : 'Guardar Producto'}
+              </button>
             </form>
           </div>
 
+          {/* Catálogo en tarjetas */}
           <h3>Catálogo de Productos ({productos.length})</h3>
           {loading ? <p>Cargando inventario...</p> : (
             <>
@@ -258,6 +305,7 @@ export default function App() {
 
                   return (
                     <div key={p.id} style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '0.8rem', background: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', position: 'relative' }}>
+                      {/* Botón Eliminar */}
                       <button 
                         onClick={() => handleEliminarProducto(p.id, p.nombre)}
                         title="Eliminar producto"
@@ -295,32 +343,43 @@ export default function App() {
                         />
                         <h4 style={{ margin: '0 0 0.2rem 0', color: '#1f2937', paddingRight: '20px' }}>{p.nombre}</h4>
                         <p style={{ fontSize: '0.85rem', color: '#4b5563', margin: '0 0 0.5rem 0' }}>
-                          💡 <strong>Servicio/Uso:</strong> {p.descripcion || 'Sin descripción'}
+                          💡 <strong>Uso:</strong> {p.descripcion || 'Sin descripción'}
                         </p>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
+                        
+                        {/* Indicador de Unidades/Stock Restante */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem', marginBottom: '0.5rem', background: '#f3f4f6', padding: '0.3rem 0.5rem', borderRadius: '4px' }}>
                           <span style={{ fontWeight: 'bold', color: '#d97706' }}>${p.precio_venta}</span>
-                          <span style={{ fontSize: '0.8rem', color: p.stock < 2 ? '#dc2626' : '#6b7280', fontWeight: p.stock < 2 ? 'bold' : 'normal' }}>
-                            {p.stock < 2 ? `⚠️ Stock: ${p.stock}` : `Stock: ${p.stock}`}
+                          <span style={{ fontSize: '0.85rem', color: p.stock <= 0 ? '#dc2626' : p.stock < 3 ? '#d97706' : '#059669', fontWeight: 'bold' }}>
+                            {p.stock <= 0 ? '❌ Agotado (0)' : `📦 Quedan: ${p.stock}`}
                           </span>
                         </div>
                       </div>
 
-                      <button 
-                        onClick={() => agregarAlCarrito(p)} 
-                        disabled={p.stock <= 0} 
-                        style={{ 
-                          width: '100%', 
-                          background: p.stock <= 0 ? '#9ca3af' : '#10b981', 
-                          color: 'white', 
-                          border: 'none', 
-                          padding: '0.4rem', 
-                          borderRadius: '4px', 
-                          cursor: p.stock <= 0 ? 'not-allowed' : 'pointer',
-                          fontWeight: 'bold'
-                        }}
-                      >
-                        {p.stock <= 0 ? 'Agotado' : '🛒 Añadir al Carrito'}
-                      </button>
+                      <div style={{ display: 'flex', gap: '0.4rem' }}>
+                        <button 
+                          onClick={() => iniciarEdicion(p)}
+                          style={{ flex: 1, background: '#3b82f6', color: 'white', border: 'none', padding: '0.4rem', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
+                        >
+                          ✏️ Editar
+                        </button>
+                        <button 
+                          onClick={() => agregarAlCarrito(p)} 
+                          disabled={p.stock <= 0} 
+                          style={{ 
+                            flex: 1,
+                            background: p.stock <= 0 ? '#9ca3af' : '#10b981', 
+                            color: 'white', 
+                            border: 'none', 
+                            padding: '0.4rem', 
+                            borderRadius: '4px', 
+                            cursor: p.stock <= 0 ? 'not-allowed' : 'pointer',
+                            fontWeight: 'bold',
+                            fontSize: '0.85rem'
+                          }}
+                        >
+                          🛒 Vender
+                        </button>
+                      </div>
                     </div>
                   )
                 })}
@@ -336,7 +395,7 @@ export default function App() {
             </>
           )}
 
-          <h3>📋 Cuentas de Clientes (Fiados y Pagos)</h3>
+          <h3>📋 Cuentas y Registro de Ventas</h3>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#f3f4f6' }}>
@@ -362,7 +421,7 @@ export default function App() {
                     </td>
                     <td>
                       {debe > 0 && (
-                        <button onClick={() => registrarAbono(v)} style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '0.2rem 0.4rem', borderRadius: '4px' }}>
+                        <button onClick={() => registrarAbono(v)} style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '0.2rem 0.4rem', borderRadius: '4px', cursor: 'pointer' }}>
                           + Abono
                         </button>
                       )}
@@ -380,13 +439,13 @@ export default function App() {
             <form onSubmit={handleAgregarCliente} style={{ display: 'grid', gap: '0.5rem' }}>
               <input type="text" placeholder="Nombre completo" value={clienteNombre} onChange={(e) => setClienteNombre(e.target.value)} required />
               <input type="text" placeholder="Teléfono" value={clienteTelefono} onChange={(e) => setClienteTelefono(e.target.value)} />
-              <button type="submit" style={{ background: '#2563eb', color: 'white', padding: '0.5rem', border: 'none', borderRadius: '4px' }}>Guardar Cliente</button>
+              <button type="submit" style={{ background: '#2563eb', color: 'white', padding: '0.5rem', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Guardar Cliente</button>
             </form>
           </div>
 
           <div style={{ background: '#fff', border: '1px solid #e5e7eb', padding: '1rem', borderRadius: '8px' }}>
             <h3>🛒 Vender / Fiar</h3>
-            {carrito.length === 0 ? <p>Carrito vacío</p> : (
+            {carrito.length === 0 ? <p style={{ color: '#6b7280' }}>Carrito vacío</p> : (
               <>
                 {carrito.map((i) => (
                   <div key={i.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
@@ -414,7 +473,7 @@ export default function App() {
                   style={{ width: '100%', marginBottom: '1rem', padding: '0.4rem' }}
                 />
 
-                <button onClick={registrarVenta} disabled={procesandoCompra} style={{ width: '100%', background: '#10b981', color: 'white', padding: '0.6rem', border: 'none', borderRadius: '4px', fontWeight: 'bold' }}>
+                <button onClick={registrarVenta} disabled={procesandoCompra} style={{ width: '100%', background: '#10b981', color: 'white', padding: '0.6rem', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>
                   Confirmar Venta
                 </button>
               </>
