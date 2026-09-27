@@ -57,7 +57,7 @@ export default function Cliente() {
       const ex = prev.find((i) => i.id === prod.id)
       if (ex) {
         if (ex.cantidad >= prod.stock) {
-          alert('Has alcanzado el límite de unidades disponibles')
+          alert('Has alcanzado el límite de unidades disponibles para este producto')
           return prev
         }
         return prev.map((i) => (i.id === prod.id ? { ...i, cantidad: i.cantidad + 1 } : i))
@@ -74,7 +74,7 @@ export default function Cliente() {
     setEnviando(true)
 
     try {
-      // 1. Descontar las cantidades correspondientes del stock de cada producto
+      // 1. Descontar las cantidades del stock de cada producto en la BD
       for (const item of carrito) {
         const nuevoStock = Math.max(item.stock - item.cantidad, 0)
         await supabase
@@ -91,14 +91,11 @@ export default function Cliente() {
       mensaje += `\n💰 *Total a Pagar:* $${totalCarrito}\n`
       mensaje += '\n¡Hola! Me gustaría confirmar este pedido.'
 
-      // Reemplaza por tu número de WhatsApp real con 57 al inicio (ej. 573001234567)
-      const urlWhatsApp = `https://api.whatsapp.com/send?phone=573209038396&text=${encodeURIComponent(mensaje)}`
+      // REEMPLAZA ESTE NÚMERO POR TU WHATSAPP REAL CON CÓDIGO DE COLOMBIA 57 (ej: 573001234567)
+      const urlWhatsApp = `https://api.whatsapp.com/send?phone=573000000000&text=${encodeURIComponent(mensaje)}`
       
-      // Limpiar el carrito y recargar productos actualizados
       setCarrito([])
       await fetchProductosManual()
-
-      // Abrir el chat de WhatsApp
       window.open(urlWhatsApp, '_blank')
     } catch (err) {
       alert('Error al procesar el pedido: ' + err.message)
@@ -118,6 +115,7 @@ export default function Cliente() {
         <p style={{ color: '#6b7280', margin: 0 }}>Encuentra tus productos favoritos de belleza y cuidado personal</p>
       </header>
 
+      {/* Buscador */}
       <div style={{ marginBottom: '1.5rem' }}>
         <input 
           type="text" 
@@ -129,6 +127,7 @@ export default function Cliente() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '2.5fr 1fr', gap: '2rem' }}>
+        {/* Catálogo */}
         <div>
           <h3>Catálogo Disponible</h3>
           {loading ? (
@@ -151,12 +150,37 @@ export default function Cliente() {
                       />
                       <h4 style={{ margin: '0 0 0.3rem 0', color: '#1f2937' }}>{p.nombre}</h4>
                       <p style={{ fontSize: '0.85rem', color: '#4b5563', margin: '0 0 0.5rem 0' }}>💡 {p.descripcion || 'Producto de belleza'}</p>
-                      <div style={{ fontWeight: 'bold', color: '#d97706', fontSize: '1.1rem', marginBottom: '0.5rem' }}>${p.precio_venta}</div>
+                      
+                      {/* Información de Precio y Stock Restante Visible para el Cliente */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '0.5rem 0' }}>
+                        <span style={{ fontWeight: 'bold', color: '#d97706', fontSize: '1.1rem' }}>${p.precio_venta}</span>
+                        <span style={{ 
+                          fontSize: '0.8rem', 
+                          padding: '0.2rem 0.5rem', 
+                          borderRadius: '12px', 
+                          fontWeight: 'bold',
+                          background: p.stock <= 0 ? '#fee2e2' : p.stock < 3 ? '#fef3c7' : '#d1fae5',
+                          color: p.stock <= 0 ? '#dc2626' : p.stock < 3 ? '#b45309' : '#047857'
+                        }}>
+                          {p.stock <= 0 ? '❌ Agotado' : p.stock < 3 ? `⚠️ ¡Quedan ${p.stock}! 🎉` : `📦 Quedan: ${p.stock}`}
+                        </span>
+                      </div>
                     </div>
+
                     <button 
                       onClick={() => agregarAlCarrito(p)} 
                       disabled={p.stock <= 0} 
-                      style={{ width: '100%', background: p.stock <= 0 ? '#9ca3af' : '#d97706', color: 'white', border: 'none', padding: '0.5rem', borderRadius: '6px', cursor: p.stock <= 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
+                      style={{ 
+                        width: '100%', 
+                        background: p.stock <= 0 ? '#9ca3af' : '#d97706', 
+                        color: 'white', 
+                        border: 'none', 
+                        padding: '0.5rem', 
+                        borderRadius: '6px', 
+                        cursor: p.stock <= 0 ? 'not-allowed' : 'pointer', 
+                        fontWeight: 'bold',
+                        marginTop: '0.5rem'
+                      }}
                     >
                       {p.stock <= 0 ? 'Agotado' : '🛒 Agregar al Pedido'}
                     </button>
@@ -167,6 +191,7 @@ export default function Cliente() {
           )}
         </div>
 
+        {/* Carrito de Compras */}
         <div style={{ background: '#fff', border: '1px solid #fef3c7', padding: '1.2rem', borderRadius: '12px', height: 'fit-content', position: 'sticky', top: '1rem' }}>
           <h3>🛍️ Mi Pedido</h3>
           {carrito.length === 0 ? <p style={{ color: '#9ca3af' }}>No has seleccionado productos aún.</p> : (
