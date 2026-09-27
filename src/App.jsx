@@ -160,6 +160,23 @@ export default function App() {
     }
   }
 
+  // REINICIAR CONTADORES Y LIMPIAR VENTAS
+  async function handleReiniciarContadores() {
+    const confirmacion = confirm('⚠️ ¿Estás seguro de reiniciar todos los contadores de ventas y ganancias a $0?\n\nEsta acción borrará el historial de ventas acumuladas.')
+    if (!confirmacion) return
+
+    try {
+      // Eliminar registros de ventas de la BD
+      const { error } = await supabase.from('ventas').delete().neq('id', 0)
+      if (error) throw error
+
+      alert('🔄 Los contadores y el historial de ventas se han reiniciado a $0.')
+      fetchVentas()
+    } catch (err) {
+      alert('Error al reiniciar contadores: ' + err.message)
+    }
+  }
+
   // Guardar Cliente
   async function handleAgregarCliente(e) {
     e.preventDefault()
@@ -250,9 +267,7 @@ export default function App() {
   // CÁLCULOS DE MÉTRICAS FINANCIERAS REALES
   const totalVendido = ventas.reduce((acc, v) => acc + (v.total || 0), 0)
   
-  // Cálculo aproximado de base por ventas registradas
   const totalBase = ventas.reduce((acc, v) => {
-    // Estimación de costo si no está desglosado en ítem
     return acc + ((v.total || 0) * 0.6) 
   }, 0)
 
@@ -266,7 +281,30 @@ export default function App() {
 
   return (
     <div style={{ padding: '2rem', fontFamily: 'sans-serif', maxWidth: '1200px', margin: '0 auto', minHeight: '100vh' }}>
-      <h1 style={{ color: '#d97706', marginBottom: '1rem' }}>💄 YAJA MAKEUP - Panel Administrador</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <h1 style={{ color: '#d97706', margin: 0 }}>💄 YAJA MAKEUP - Panel Administrador</h1>
+        
+        {/* BOTÓN REINICIAR CONTADORES */}
+        <button 
+          onClick={handleReiniciarContadores} 
+          style={{ 
+            background: '#ef4444', 
+            color: 'white', 
+            border: 'none', 
+            padding: '0.6rem 1rem', 
+            borderRadius: '6px', 
+            cursor: 'pointer', 
+            fontWeight: 'bold', 
+            fontSize: '0.9rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.4rem',
+            boxShadow: '0 2px 4px rgba(239, 68, 68, 0.3)'
+          }}
+        >
+          🔄 Reiniciar Contadores ($0)
+        </button>
+      </div>
 
       {/* TARJETAS SUPERIORES DE RESUMEN DE VENTAS, COSTO Y GANANCIA */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
@@ -398,7 +436,6 @@ export default function App() {
                           💡 <strong>Uso:</strong> {p.descripcion || 'Sin descripción'}
                         </p>
                         
-                        {/* Precios Entrada, Salida y Ganancia Unitaria */}
                         <div style={{ background: '#f9fafb', padding: '0.4rem', borderRadius: '6px', marginBottom: '0.5rem', fontSize: '0.8rem' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', color: '#6b7280' }}>
                             <span>Entrada (Costo):</span>
@@ -475,34 +512,38 @@ export default function App() {
               </tr>
             </thead>
             <tbody>
-              {ventas.map((v) => {
-                const debe = v.total - v.monto_pagado
-                return (
-                  <tr key={v.id} style={{ borderBottom: '1px solid #ddd' }}>
-                    <td style={{ padding: '0.5rem', fontWeight: '500' }}>{v.clientes?.nombre || 'Cliente Web / WhatsApp'}</td>
-                    <td style={{ padding: '0.5rem', fontWeight: 'bold' }}>${v.total?.toLocaleString()}</td>
-                    <td style={{ padding: '0.5rem', color: '#059669' }}>${v.monto_pagado?.toLocaleString()}</td>
-                    <td style={{ padding: '0.5rem', color: debe > 0 ? '#dc2626' : '#10b981', fontWeight: 'bold' }}>
-                      ${debe > 0 ? debe.toLocaleString() : 0}
-                    </td>
-                    <td style={{ padding: '0.5rem' }}>
-                      <span style={{ 
-                        padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.8rem', color: 'white', fontWeight: 'bold',
-                        background: v.estado === 'Pagado' ? '#10b981' : v.estado === 'Abonado' ? '#f59e0b' : '#ef4444' 
-                      }}>
-                        {v.estado}
-                      </span>
-                    </td>
-                    <td style={{ padding: '0.5rem' }}>
-                      {debe > 0 && (
-                        <button onClick={() => registrarAbono(v)} style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '0.2rem 0.5rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>
-                          + Abono
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
+              {ventas.length === 0 ? (
+                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '1rem', color: '#9ca3af' }}>No hay ventas registradas aún. Contadores en $0.</td></tr>
+              ) : (
+                ventas.map((v) => {
+                  const debe = v.total - v.monto_pagado
+                  return (
+                    <tr key={v.id} style={{ borderBottom: '1px solid #ddd' }}>
+                      <td style={{ padding: '0.5rem', fontWeight: '500' }}>{v.clientes?.nombre || 'Cliente Web / WhatsApp'}</td>
+                      <td style={{ padding: '0.5rem', fontWeight: 'bold' }}>${v.total?.toLocaleString()}</td>
+                      <td style={{ padding: '0.5rem', color: '#059669' }}>${v.monto_pagado?.toLocaleString()}</td>
+                      <td style={{ padding: '0.5rem', color: debe > 0 ? '#dc2626' : '#10b981', fontWeight: 'bold' }}>
+                        ${debe > 0 ? debe.toLocaleString() : 0}
+                      </td>
+                      <td style={{ padding: '0.5rem' }}>
+                        <span style={{ 
+                          padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.8rem', color: 'white', fontWeight: 'bold',
+                          background: v.estado === 'Pagado' ? '#10b981' : v.estado === 'Abonado' ? '#f59e0b' : '#ef4444' 
+                        }}>
+                          {v.estado}
+                        </span>
+                      </td>
+                      <td style={{ padding: '0.5rem' }}>
+                        {debe > 0 && (
+                          <button onClick={() => registrarAbono(v)} style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '0.2rem 0.5rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>
+                            + Abono
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
             </tbody>
           </table>
         </div>
