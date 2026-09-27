@@ -92,7 +92,7 @@ export default function Cliente() {
       mensaje += '\n¡Hola! Me gustaría confirmar este pedido.'
 
       // Reemplaza por tu número de WhatsApp real con 57 al inicio (ej. 573001234567)
-      const urlWhatsApp = `https://api.whatsapp.com/send?phone=573000000000&text=${encodeURIComponent(mensaje)}`
+      const urlWhatsApp = `https://api.whatsapp.com/send?phone=573209038396&text=${encodeURIComponent(mensaje)}`
       
       // Limpiar el carrito y recargar productos actualizados
       setCarrito([])
