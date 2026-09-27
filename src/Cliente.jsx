@@ -5,7 +5,6 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-// Imagen por defecto local en SVG (no requiere internet ni servidores externos)
 const IMAGEN_DEFAULT = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'><rect width='100%' height='100%' fill='%23fef3c7'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='16' fill='%23d97706'>YAJA MAKEUP</text></svg>"
 
 export default function Cliente() {
@@ -13,6 +12,7 @@ export default function Cliente() {
   const [loading, setLoading] = useState(true)
   const [carrito, setCarrito] = useState([])
   const [busqueda, setBusqueda] = useState('')
+  const [enviando, setEnviando] = useState(false)
 
   useEffect(() => {
     let isSubscribed = true
@@ -35,6 +35,11 @@ export default function Cliente() {
     fetchProductos()
     return () => { isSubscribed = false }
   }, [])
+
+  const fetchProductosManual = async () => {
+    const { data } = await supabase.from('productos').select('*').order('id', { ascending: false })
+    setProductos(data || [])
+  }
 
   const esUrlValida = (string) => {
     if (!string) return false
@@ -63,18 +68,43 @@ export default function Cliente() {
 
   const totalCarrito = carrito.reduce((t, i) => t + i.precio_venta * i.cantidad, 0)
 
-  const enviarPedidoWhatsApp = () => {
+  // Descontar el stock en Supabase y redirigir al WhatsApp
+  const enviarPedidoWhatsApp = async () => {
     if (carrito.length === 0) return
-    let mensaje = '✨ *NUEVO PEDIDO EN YAJA MAKEUP* ✨\n\n'
-    carrito.forEach((item) => {
-      mensaje += `• ${item.nombre} x${item.cantidad} - $${item.precio_venta * item.cantidad}\n`
-    })
-    mensaje += `\n💰 *Total a Pagar:* $${totalCarrito}\n`
-    mensaje += '\n¡Hola! Me gustaría confirmar este pedido.'
+    setEnviando(true)
 
-    // Recuerda colocar tu número de WhatsApp aquí con 57 al inicio
-    const urlWhatsApp = `https://api.whatsapp.com/send?phone=573209038396&text=${encodeURIComponent(mensaje)}`
-    window.open(urlWhatsApp, '_blank')
+    try {
+      // 1. Descontar las cantidades correspondientes del stock de cada producto
+      for (const item of carrito) {
+        const nuevoStock = Math.max(item.stock - item.cantidad, 0)
+        await supabase
+          .from('productos')
+          .update({ stock: nuevoStock })
+          .eq('id', item.id)
+      }
+
+      // 2. Construir el mensaje de pedido para WhatsApp
+      let mensaje = '✨ *NUEVO PEDIDO EN YAJA MAKEUP* ✨\n\n'
+      carrito.forEach((item) => {
+        mensaje += `• ${item.nombre} x${item.cantidad} - $${item.precio_venta * item.cantidad}\n`
+      })
+      mensaje += `\n💰 *Total a Pagar:* $${totalCarrito}\n`
+      mensaje += '\n¡Hola! Me gustaría confirmar este pedido.'
+
+      // Reemplaza por tu número de WhatsApp real con 57 al inicio (ej. 573001234567)
+      const urlWhatsApp = `https://api.whatsapp.com/send?phone=573000000000&text=${encodeURIComponent(mensaje)}`
+      
+      // Limpiar el carrito y recargar productos actualizados
+      setCarrito([])
+      await fetchProductosManual()
+
+      // Abrir el chat de WhatsApp
+      window.open(urlWhatsApp, '_blank')
+    } catch (err) {
+      alert('Error al procesar el pedido: ' + err.message)
+    } finally {
+      setEnviando(false)
+    }
   }
 
   const productosFiltrados = productos.filter((p) =>
@@ -154,9 +184,10 @@ export default function Cliente() {
               </h3>
               <button 
                 onClick={enviarPedidoWhatsApp} 
-                style={{ width: '100%', background: '#25D366', color: 'white', padding: '0.75rem', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                disabled={enviando}
+                style={{ width: '100%', background: enviando ? '#6b7280' : '#25D366', color: 'white', padding: '0.75rem', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '1rem', cursor: enviando ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
               >
-                📲 Enviar Pedido por WhatsApp
+                {enviando ? 'Procesando pedido...' : '📲 Enviar Pedido por WhatsApp'}
               </button>
             </>
           )}
