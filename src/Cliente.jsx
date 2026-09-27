@@ -5,6 +5,9 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
+// Imagen por defecto local en SVG (no requiere internet ni servidores externos)
+const IMAGEN_DEFAULT = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'><rect width='100%' height='100%' fill='%23fef3c7'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='16' fill='%23d97706'>YAJA MAKEUP</text></svg>"
+
 export default function Cliente() {
   const [productos, setProductos] = useState([])
   const [loading, setLoading] = useState(true)
@@ -12,27 +15,29 @@ export default function Cliente() {
   const [busqueda, setBusqueda] = useState('')
 
   useEffect(() => {
-    let isMounted = true
+    let isSubscribed = true
     async function fetchProductos() {
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('productos')
           .select('*')
           .order('id', { ascending: false })
         
-        if (isMounted) {
+        if (error) console.error(error)
+        if (isSubscribed) {
           setProductos(data || [])
           setLoading(false)
         }
       } catch (err) {
-        if (isMounted) setLoading(false)
+        if (isSubscribed) setLoading(false)
       }
     }
     fetchProductos()
-    return () => { isMounted = false }
+    return () => { isSubscribed = false }
   }, [])
 
   const esUrlValida = (string) => {
+    if (!string) return false
     try {
       const url = new URL(string)
       return url.protocol === 'http:' || url.protocol === 'https:'
@@ -67,12 +72,13 @@ export default function Cliente() {
     mensaje += `\n💰 *Total a Pagar:* $${totalCarrito}\n`
     mensaje += '\n¡Hola! Me gustaría confirmar este pedido.'
 
+    // Recuerda colocar tu número de WhatsApp aquí con 57 al inicio
     const urlWhatsApp = `https://api.whatsapp.com/send?phone=573209038396&text=${encodeURIComponent(mensaje)}`
     window.open(urlWhatsApp, '_blank')
   }
 
   const productosFiltrados = productos.filter((p) =>
-    p.nombre.toLowerCase().includes(busqueda.toLowerCase())
+    p.nombre ? p.nombre.toLowerCase().includes(busqueda.toLowerCase()) : false
   )
 
   return (
@@ -100,11 +106,19 @@ export default function Cliente() {
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
               {productosFiltrados.map((p) => {
-                const foto = esUrlValida(p.imagen_url) ? p.imagen_url : 'https://via.placeholder.com/150?text=YAJA+MAKEUP'
+                const foto = esUrlValida(p.imagen_url) ? p.imagen_url : IMAGEN_DEFAULT
                 return (
                   <div key={p.id} style={{ border: '1px solid #fef3c7', borderRadius: '12px', padding: '0.8rem', background: '#fff', boxShadow: '0 2px 5px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                     <div>
-                      <img src={foto} alt={p.nombre} onError={(e) => { e.target.src = 'https://via.placeholder.com/150?text=YAJA+MAKEUP' }} style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: '8px', marginBottom: '0.5rem' }} />
+                      <img 
+                        src={foto} 
+                        alt={p.nombre || 'Producto'} 
+                        onError={(e) => { 
+                          e.target.onerror = null; 
+                          e.target.src = IMAGEN_DEFAULT; 
+                        }} 
+                        style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: '8px', marginBottom: '0.5rem' }} 
+                      />
                       <h4 style={{ margin: '0 0 0.3rem 0', color: '#1f2937' }}>{p.nombre}</h4>
                       <p style={{ fontSize: '0.85rem', color: '#4b5563', margin: '0 0 0.5rem 0' }}>💡 {p.descripcion || 'Producto de belleza'}</p>
                       <div style={{ fontWeight: 'bold', color: '#d97706', fontSize: '1.1rem', marginBottom: '0.5rem' }}>${p.precio_venta}</div>
