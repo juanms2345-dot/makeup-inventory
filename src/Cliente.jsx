@@ -12,15 +12,25 @@ export default function Cliente() {
   const [busqueda, setBusqueda] = useState('')
 
   useEffect(() => {
+    let isMounted = true
+    async function fetchProductos() {
+      try {
+        const { data } = await supabase
+          .from('productos')
+          .select('*')
+          .order('id', { ascending: false })
+        
+        if (isMounted) {
+          setProductos(data || [])
+          setLoading(false)
+        }
+      } catch (err) {
+        if (isMounted) setLoading(false)
+      }
+    }
     fetchProductos()
+    return () => { isMounted = false }
   }, [])
-
-  async function fetchProductos() {
-    setLoading(true)
-    const { data } = await supabase.from('productos').select('*').order('id', { ascending: false })
-    setProductos(data || [])
-    setLoading(false)
-  }
 
   const esUrlValida = (string) => {
     try {
@@ -48,7 +58,6 @@ export default function Cliente() {
 
   const totalCarrito = carrito.reduce((t, i) => t + i.precio_venta * i.cantidad, 0)
 
-  // Enviar pedido directamente al WhatsApp de YAJA MAKEUP
   const enviarPedidoWhatsApp = () => {
     if (carrito.length === 0) return
     let mensaje = '✨ *NUEVO PEDIDO EN YAJA MAKEUP* ✨\n\n'
@@ -67,13 +76,12 @@ export default function Cliente() {
   )
 
   return (
-    <div style={{ padding: '1.5rem', fontFamily: 'sans-serif', maxWidth: '1100px', margin: '0 auto', background: '#fffcf8' }}>
+    <div style={{ padding: '1.5rem', fontFamily: 'sans-serif', maxWidth: '1100px', margin: '0 auto', background: '#fffcf8', minHeight: '100vh' }}>
       <header style={{ textAlign: 'center', marginBottom: '2rem', borderBottom: '2px solid #fef3c7', paddingBottom: '1rem' }}>
         <h1 style={{ color: '#d97706', margin: '0 0 0.5rem 0' }}>💄 YAJA MAKEUP</h1>
         <p style={{ color: '#6b7280', margin: 0 }}>Encuentra tus productos favoritos de belleza y cuidado personal</p>
       </header>
 
-      {/* Buscador */}
       <div style={{ marginBottom: '1.5rem' }}>
         <input 
           type="text" 
@@ -85,10 +93,11 @@ export default function Cliente() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '2.5fr 1fr', gap: '2rem' }}>
-        {/* Productos */}
         <div>
           <h3>Catálogo Disponible</h3>
-          {loading ? <p>Cargando productos de belleza...</p> : (
+          {loading ? (
+            <div style={{ padding: '2rem', textAlign: 'center', color: '#d97706' }}>Cargando catálogo...</div>
+          ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
               {productosFiltrados.map((p) => {
                 const foto = esUrlValida(p.imagen_url) ? p.imagen_url : 'https://via.placeholder.com/150?text=YAJA+MAKEUP'
@@ -114,7 +123,6 @@ export default function Cliente() {
           )}
         </div>
 
-        {/* Resumen del pedido del cliente */}
         <div style={{ background: '#fff', border: '1px solid #fef3c7', padding: '1.2rem', borderRadius: '12px', height: 'fit-content', position: 'sticky', top: '1rem' }}>
           <h3>🛍️ Mi Pedido</h3>
           {carrito.length === 0 ? <p style={{ color: '#9ca3af' }}>No has seleccionado productos aún.</p> : (
