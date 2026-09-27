@@ -5,6 +5,8 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
+const IMAGEN_DEFAULT = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'><rect width='100%' height='100%' fill='%23f3f4f6'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='16' fill='%239ca3af'>Sin Imagen</text></svg>"
+
 export default function App() {
   const [productos, setProductos] = useState([])
   const [clientes, setClientes] = useState([])
@@ -36,14 +38,24 @@ export default function App() {
   const productosPorPagina = 6
 
   useEffect(() => {
+    let isSubscribed = true
+    async function cargarDatos() {
+      setLoading(true)
+      const [{ data: prodData }, { data: cliData }, { data: venData }] = await Promise.all([
+        supabase.from('productos').select('*').order('id', { ascending: false }),
+        supabase.from('clientes').select('*').order('id', { ascending: false }),
+        supabase.from('ventas').select('*, clientes(nombre)').order('id', { ascending: false })
+      ])
+      if (isSubscribed) {
+        setProductos(prodData || [])
+        setClientes(cliData || [])
+        setVentas(venData || [])
+        setLoading(false)
+      }
+    }
     cargarDatos()
+    return () => { isSubscribed = false }
   }, [])
-
-  async function cargarDatos() {
-    setLoading(true)
-    await Promise.all([fetchProductos(), fetchClientes(), fetchVentas()])
-    setLoading(false)
-  }
 
   async function fetchProductos() {
     const { data } = await supabase.from('productos').select('*').order('id', { ascending: false })
@@ -60,8 +72,8 @@ export default function App() {
     setVentas(data || [])
   }
 
-  // Comprobar si un texto es un enlace HTTP válido
   const esUrlValida = (string) => {
+    if (!string) return false
     try {
       const url = new URL(string)
       return url.protocol === 'http:' || url.protocol === 'https:'
@@ -75,10 +87,7 @@ export default function App() {
     e.preventDefault()
     if (!nombre || !stock || !precioVenta) return alert('Por favor llena los campos requeridos')
     
-    // Si la URL no empieza con http:// o https://, se asigna una imagen por defecto
-    const urlFinal = esUrlValida(imagenUrl) 
-      ? imagenUrl 
-      : 'https://via.placeholder.com/150?text=Sin+Imagen'
+    const urlFinal = esUrlValida(imagenUrl) ? imagenUrl : ''
 
     try {
       const { error } = await supabase.from('productos').insert([
@@ -104,13 +113,12 @@ export default function App() {
     }
   }
 
-  // Eliminar Producto del Inventario
+  // Eliminar Producto
   async function handleEliminarProducto(id, nombreProd) {
     if (!confirm(`¿Estás seguro de eliminar "${nombreProd}" del catálogo?`)) return
     try {
       const { error } = await supabase.from('productos').delete().eq('id', id)
       if (error) throw error
-      // Quitar del carrito si estaba dentro
       setCarrito((prev) => prev.filter((item) => item.id !== id))
       fetchProductos()
     } catch (err) {
@@ -208,16 +216,14 @@ export default function App() {
   // Paginación
   const indiceUltimo = paginaActual * productosPorPagina
   const productosActuales = productos.slice(indiceUltimo - productosPorPagina, indiceUltimo)
-  const totalPaginas = Math.ceil(productos.length / productosPorPagina)
+  const totalPaginas = Math.ceil(productos.length / productosPorPagina) || 1
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'sans-serif', maxWidth: '1200px', margin: '0 auto' }}>
-      <h1 style={{ color: '#d97706' }}>💄 YAJA MAKEUP - Catálogo de Productos y Clientes</h1>
+    <div style={{ padding: '2rem', fontFamily: 'sans-serif', maxWidth: '1200px', margin: '0 auto', minHeight: '100vh' }}>
+      <h1 style={{ color: '#d97706' }}>💄 YAJA MAKEUP - Panel Administrador</h1>
 
       <div style={{ display: 'grid', gridTemplateColumns: '2.5fr 1fr', gap: '2rem' }}>
-        {/* Columna Izquierda */}
         <div>
-          {/* Formulario de registro */}
           <div style={{ background: '#f9fafb', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid #e5e7eb' }}>
             <h3>Registrar Nuevo Producto</h3>
             <form onSubmit={handleAgregarProducto} style={{ display: 'grid', gap: '0.5rem', gridTemplateColumns: '1fr 1fr' }}>
@@ -243,20 +249,15 @@ export default function App() {
             </form>
           </div>
 
-          {/* Catálogo en tarjetas visuales */}
           <h3>Catálogo de Productos ({productos.length})</h3>
           {loading ? <p>Cargando inventario...</p> : (
             <>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
                 {productosActuales.map((p) => {
-                  const tieneFotoValida = esUrlValida(p.imagen_url)
-                  const fotoMostrar = tieneFotoValida 
-                    ? p.imagen_url 
-                    : 'https://via.placeholder.com/150?text=Sin+Imagen'
+                  const foto = esUrlValida(p.imagen_url) ? p.imagen_url : IMAGEN_DEFAULT
 
                   return (
                     <div key={p.id} style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '0.8rem', background: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', position: 'relative' }}>
-                      {/* Botón de eliminar arriba a la derecha */}
                       <button 
                         onClick={() => handleEliminarProducto(p.id, p.nombre)}
                         title="Eliminar producto"
@@ -284,9 +285,12 @@ export default function App() {
 
                       <div>
                         <img 
-                          src={fotoMostrar} 
-                          alt={p.nombre} 
-                          onError={(e) => { e.target.src = 'https://via.placeholder.com/150?text=Sin+Imagen' }}
+                          src={foto} 
+                          alt={p.nombre || 'Producto'} 
+                          onError={(e) => { 
+                            e.target.onerror = null; 
+                            e.target.src = IMAGEN_DEFAULT; 
+                          }}
                           style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: '6px', marginBottom: '0.5rem' }} 
                         />
                         <h4 style={{ margin: '0 0 0.2rem 0', color: '#1f2937', paddingRight: '20px' }}>{p.nombre}</h4>
@@ -322,7 +326,6 @@ export default function App() {
                 })}
               </div>
 
-              {/* Controles de paginación */}
               {totalPaginas > 1 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                   <button onClick={() => setPaginaActual((prev) => Math.max(prev - 1, 1))} disabled={paginaActual === 1}>Anterior</button>
@@ -333,7 +336,6 @@ export default function App() {
             </>
           )}
 
-          {/* Historial de Cuentas */}
           <h3>📋 Cuentas de Clientes (Fiados y Pagos)</h3>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
@@ -372,9 +374,7 @@ export default function App() {
           </table>
         </div>
 
-        {/* Columna Derecha */}
         <div>
-          {/* Registrar Cliente */}
           <div style={{ background: '#f9fafb', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid #e5e7eb' }}>
             <h3>👤 Nuevo Cliente</h3>
             <form onSubmit={handleAgregarCliente} style={{ display: 'grid', gap: '0.5rem' }}>
@@ -384,7 +384,6 @@ export default function App() {
             </form>
           </div>
 
-          {/* Carrito de Compra */}
           <div style={{ background: '#fff', border: '1px solid #e5e7eb', padding: '1rem', borderRadius: '8px' }}>
             <h3>🛒 Vender / Fiar</h3>
             {carrito.length === 0 ? <p>Carrito vacío</p> : (
