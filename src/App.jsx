@@ -9,7 +9,17 @@ const IMAGEN_DEFAULT = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/20
 
 const CATEGORIAS_SUGERIDAS = ['Labiales', 'Sérums', 'Cuidado Facial', 'Maquillaje']
 
+// CREDENCIALES DE ACCESO AL PANEL DE ADMINISTRACIÓN
+const ADMIN_USUARIO = "admin"
+const ADMIN_CLAVE = "yaja123" // Puedes cambiar tu contraseña aquí
+
 export default function App() {
+  // Estado de Autenticación / Sesión
+  const [autenticado, setAutenticado] = useState(false)
+  const [inputUsuario, setInputUsuario] = useState('')
+  const [inputClave, setInputClave] = useState('')
+  const [errorLogin, setErrorLogin] = useState('')
+
   const [productos, setProductos] = useState([])
   const [clientes, setClientes] = useState([])
   const [ventas, setVentas] = useState([])
@@ -43,7 +53,16 @@ export default function App() {
   const [paginaActual, setPaginaActual] = useState(1)
   const productosPorPagina = 6
 
+  // Verificar si ya había iniciado sesión previamente
   useEffect(() => {
+    const sesionGuardada = localStorage.getItem('yaja_admin_auth')
+    if (sesionGuardada === 'true') {
+      setAutenticado(true)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!autenticado) return
     let isSubscribed = true
     async function cargarDatos() {
       setLoading(true)
@@ -61,7 +80,25 @@ export default function App() {
     }
     cargarDatos()
     return () => { isSubscribed = false }
-  }, [])
+  }, [autenticado])
+
+  // Lógica de Inicio de Sesión
+  const handleLogin = (e) => {
+    e.preventDefault()
+    if (inputUsuario === ADMIN_USUARIO && inputClave === ADMIN_CLAVE) {
+      setAutenticado(true)
+      localStorage.setItem('yaja_admin_auth', 'true')
+      setErrorLogin('')
+    } else {
+      setErrorLogin('⚠️ Usuario o contraseña incorrectos')
+    }
+  }
+
+  // Lógica de Cerrar Sesión
+  const handleLogout = () => {
+    setAutenticado(false)
+    localStorage.removeItem('yaja_admin_auth')
+  }
 
   async function fetchProductos() {
     const { data } = await supabase.from('productos').select('*').order('id', { ascending: false })
@@ -293,6 +330,59 @@ export default function App() {
     }
   }
 
+  // PANTALLA DE INICIO DE SESIÓN (LOGIN) SI NO ESTÁ AUTENTICADO
+  if (!autenticado) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: '#fffcf8', fontFamily: 'sans-serif' }}>
+        <div style={{ background: '#fff', padding: '2.5rem', borderRadius: '12px', border: '1px solid #fef3c7', boxShadow: '0 4px 15px rgba(0,0,0,0.08)', width: '100%', maxWidth: '380px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+            <h1 style={{ color: '#d97706', margin: '0 0 0.5rem 0', fontSize: '1.8rem' }}>💄 YAJA MAKEUP</h1>
+            <p style={{ color: '#6b7280', margin: 0, fontSize: '0.9rem' }}>Panel de Administración Privado</p>
+          </div>
+
+          {errorLogin && (
+            <div style={{ background: '#fee2e2', color: '#b91c1c', padding: '0.6rem', borderRadius: '6px', fontSize: '0.85rem', marginBottom: '1rem', textAlign: 'center', fontWeight: 'bold' }}>
+              {errorLogin}
+            </div>
+          )}
+
+          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div>
+              <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#374151', display: 'block', marginBottom: '0.3rem' }}>Usuario:</label>
+              <input 
+                type="text" 
+                placeholder="Ingresa tu usuario" 
+                value={inputUsuario} 
+                onChange={(e) => setInputUsuario(e.target.value)}
+                style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '1rem', boxSizing: 'border-box' }}
+                required
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#374151', display: 'block', marginBottom: '0.3rem' }}>Contraseña:</label>
+              <input 
+                type="password" 
+                placeholder="••••••••" 
+                value={inputClave} 
+                onChange={(e) => setInputClave(e.target.value)}
+                style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '1rem', boxSizing: 'border-box' }}
+                required
+              />
+            </div>
+
+            <button 
+              type="submit" 
+              style={{ background: '#d97706', color: 'white', padding: '0.75rem', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', marginTop: '0.5rem' }}
+            >
+              🔐 Iniciar Sesión
+            </button>
+          </form>
+        </div>
+      </div>
+    )
+  }
+
   // CÁLCULOS DE MÉTRICAS FINANCIERAS
   const totalVendido = ventas.reduce((acc, v) => acc + (v.total || 0), 0)
   
@@ -310,31 +400,51 @@ export default function App() {
 
   return (
     <div style={{ padding: '2rem', fontFamily: 'sans-serif', maxWidth: '1200px', margin: '0 auto', minHeight: '100vh' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
         <h1 style={{ color: '#d97706', margin: 0 }}>💄 YAJA MAKEUP - Panel Administrador</h1>
         
-        <button 
-          onClick={handleReiniciarContadores} 
-          style={{ 
-            background: '#ef4444', 
-            color: 'white', 
-            border: 'none', 
-            padding: '0.6rem 1rem', 
-            borderRadius: '6px', 
-            cursor: 'pointer', 
-            fontWeight: 'bold', 
-            fontSize: '0.9rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.4rem',
-            boxShadow: '0 2px 4px rgba(239, 68, 68, 0.3)'
-          }}
-        >
-          🔄 Reiniciar Contadores ($0)
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button 
+            onClick={handleReiniciarContadores} 
+            style={{ 
+              background: '#ef4444', 
+              color: 'white', 
+              border: 'none', 
+              padding: '0.6rem 1rem', 
+              borderRadius: '6px', 
+              cursor: 'pointer', 
+              fontWeight: 'bold', 
+              fontSize: '0.9rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem'
+            }}
+          >
+            🔄 Reiniciar Contadores ($0)
+          </button>
+
+          <button 
+            onClick={handleLogout} 
+            style={{ 
+              background: '#4b5563', 
+              color: 'white', 
+              border: 'none', 
+              padding: '0.6rem 1rem', 
+              borderRadius: '6px', 
+              cursor: 'pointer', 
+              fontWeight: 'bold', 
+              fontSize: '0.9rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem'
+            }}
+          >
+            🔒 Cerrar Sesión
+          </button>
+        </div>
       </div>
 
-      {/* TARJETAS SUPERIORES */}
+      {/* TARJETAS SUPERIORES DE MÉTRICAS */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
         <div style={{ background: '#eff6ff', padding: '1.2rem', borderRadius: '10px', border: '1px solid #bfdbfe' }}>
           <h4 style={{ margin: '0 0 0.5rem 0', color: '#1e40af' }}>🛍️ Total Vendido (Salida)</h4>
@@ -357,7 +467,7 @@ export default function App() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '2.5fr 1fr', gap: '2rem' }}>
         <div>
-          {/* Formulario de Registro / Edición de Producto con Selector de Categorías */}
+          {/* Formulario de Registro / Edición de Producto */}
           <div style={{ background: productoEditando ? '#fffbebf0' : '#f9fafb', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem', border: productoEditando ? '2px solid #f59e0b' : '1px solid #e5e7eb' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
               <h3 style={{ margin: 0, color: productoEditando ? '#b45309' : '#111827' }}>
@@ -373,7 +483,6 @@ export default function App() {
             <form onSubmit={handleGuardarProducto} style={{ display: 'grid', gap: '0.5rem', gridTemplateColumns: '1fr 1fr' }}>
               <input type="text" placeholder="Nombre del producto" value={nombre} onChange={(e) => setNombre(e.target.value)} required />
               
-              {/* SELECTOR DE LAS 4 CATEGORÍAS PRINCIPALES */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
                 <select 
                   value={categoria} 
@@ -387,7 +496,6 @@ export default function App() {
                   <option value="OTRA">➕ Agregar nueva categoría...</option>
                 </select>
 
-                {/* Si selecciona "Agregar nueva categoría...", aparece el input */}
                 {esNuevaCategoria && (
                   <input 
                     type="text" 
