@@ -229,8 +229,7 @@ export default function App() {
       alert('Error: ' + err.message)
     }
   }
-
-  async function handleEliminarProducto(id, nombreProd) {
+async function handleEliminarProducto(id, nombreProd) {
     if (!confirm(`¿Estás seguro de eliminar "${nombreProd}" del catálogo?`)) return
     try {
       const { error } = await supabase.from('productos').delete().eq('id', id)
@@ -238,10 +237,12 @@ export default function App() {
       setCarrito((prev) => prev.filter((item) => item.id !== id))
       if (productoEditando === id) cancelarEdicion()
       fetchProductos()
+      alert(`🗑️ El producto "${nombreProd}" se ha eliminado correctamente.`)
     } catch (err) {
       alert('Error al eliminar producto: ' + err.message)
     }
   }
+  
 
   async function handleReiniciarContadores() {
     const confirmacion = confirm('⚠️ ¿Estás seguro de reiniciar todos los contadores de ventas y ganancias a $0?')
