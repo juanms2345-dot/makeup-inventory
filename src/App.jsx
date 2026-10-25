@@ -9,12 +9,10 @@ const IMAGEN_DEFAULT = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/20
 
 const CATEGORIAS_SUGERIDAS = ['Labiales', 'Sérums', 'Cuidado Facial', 'Maquillaje']
 
-// CREDENCIALES DE ACCESO AL PANEL DE ADMINISTRACIÓN
 const ADMIN_USUARIO = "admin"
-const ADMIN_CLAVE = "yaja123" // Puedes cambiar tu contraseña aquí
+const ADMIN_CLAVE = "yaja123"
 
 export default function App() {
-  // Estado de Autenticación / Sesión
   const [autenticado, setAutenticado] = useState(false)
   const [inputUsuario, setInputUsuario] = useState('')
   const [inputClave, setInputClave] = useState('')
@@ -25,7 +23,6 @@ export default function App() {
   const [ventas, setVentas] = useState([])
   const [loading, setLoading] = useState(true)
 
-  // Formulario de Registro / Edición de Productos
   const [productoEditando, setProductoEditando] = useState(null)
   const [nombre, setNombre] = useState('')
   const [stock, setStock] = useState('')
@@ -37,23 +34,25 @@ export default function App() {
   const [imagenUrl, setImagenUrl] = useState('')
   const [descripcion, setDescripcion] = useState('')
 
-  // Formulario Clientes
   const [clienteNombre, setClienteNombre] = useState('')
   const [clienteTelefono, setClienteTelefono] = useState('')
 
-  // Selección en Venta
   const [clienteSeleccionado, setClienteSeleccionado] = useState('')
   const [montoAbonoInicial, setMontoAbonoInicial] = useState('')
 
-  // Carrito de compras
   const [carrito, setCarrito] = useState([])
   const [procesandoCompra, setProcesandoCompra] = useState(false)
 
-  // Paginación
   const [paginaActual, setPaginaActual] = useState(1)
   const productosPorPagina = 6
+  const [esMovil, setEsMovil] = useState(window.innerWidth < 768)
 
-  // Verificar si ya había iniciado sesión previamente
+  useEffect(() => {
+    const handleResize = () => setEsMovil(window.innerWidth < 768)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
   useEffect(() => {
     const sesionGuardada = localStorage.getItem('yaja_admin_auth')
     if (sesionGuardada === 'true') {
@@ -82,7 +81,6 @@ export default function App() {
     return () => { isSubscribed = false }
   }, [autenticado])
 
-  // Lógica de Inicio de Sesión
   const handleLogin = (e) => {
     e.preventDefault()
     if (inputUsuario === ADMIN_USUARIO && inputClave === ADMIN_CLAVE) {
@@ -94,7 +92,6 @@ export default function App() {
     }
   }
 
-  // Lógica de Cerrar Sesión
   const handleLogout = () => {
     setAutenticado(false)
     localStorage.removeItem('yaja_admin_auth')
@@ -125,7 +122,6 @@ export default function App() {
     }
   }
 
-  // Cargar datos en el formulario para EDITAR
   function iniciarEdicion(prod) {
     setProductoEditando(prod.id)
     setNombre(prod.nombre || '')
@@ -161,7 +157,6 @@ export default function App() {
     setDescripcion('')
   }
 
-  // Manejar cambio de categoría
   const handleSelectCategoria = (e) => {
     const val = e.target.value
     if (val === 'OTRA') {
@@ -174,7 +169,6 @@ export default function App() {
     }
   }
 
-  // Guardar (Crear o Actualizar) Producto
   async function handleGuardarProducto(e) {
     e.preventDefault()
     if (!nombre || stock === '' || !precioVenta) return alert('Por favor llena los campos requeridos')
@@ -213,7 +207,6 @@ export default function App() {
     }
   }
 
-  // Eliminar Producto
   async function handleEliminarProducto(id, nombreProd) {
     if (!confirm(`¿Estás seguro de eliminar "${nombreProd}" del catálogo?`)) return
     try {
@@ -227,7 +220,6 @@ export default function App() {
     }
   }
 
-  // REINICIAR CONTADORES Y LIMPIAR VENTAS
   async function handleReiniciarContadores() {
     const confirmacion = confirm('⚠️ ¿Estás seguro de reiniciar todos los contadores de ventas y ganancias a $0?\n\nEsta acción borrará el historial de ventas acumuladas.')
     if (!confirmacion) return
@@ -243,7 +235,6 @@ export default function App() {
     }
   }
 
-  // Guardar Cliente
   async function handleAgregarCliente(e) {
     e.preventDefault()
     if (!clienteNombre) return alert('Ingresa el nombre del cliente')
@@ -258,7 +249,6 @@ export default function App() {
     }
   }
 
-  // Carrito
   const agregarAlCarrito = (prod) => {
     if (prod.stock <= 0) return alert('Producto agotado')
     setCarrito((prev) => {
@@ -273,7 +263,6 @@ export default function App() {
 
   const totalCarrito = carrito.reduce((t, i) => t + i.precio_venta * i.cantidad, 0)
 
-  // Registrar Venta Manual desde el Admin
   const registrarVenta = async () => {
     if (carrito.length === 0) return
     if (!clienteSeleccionado) return alert('Por favor selecciona un cliente')
@@ -308,7 +297,6 @@ export default function App() {
     }
   }
 
-  // Registrar Abono
   const registrarAbono = async (venta) => {
     const valorAbono = prompt(`Deuda actual: $${venta.total - venta.monto_pagado}. ¿Cuánto abona el cliente?`)
     if (!valorAbono || isNaN(valorAbono)) return
@@ -330,50 +318,49 @@ export default function App() {
     }
   }
 
-  // PANTALLA DE INICIO DE SESIÓN (LOGIN) SI NO ESTÁ AUTENTICADO
   if (!autenticado) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: '#fffcf8', fontFamily: 'sans-serif' }}>
-        <div style={{ background: '#fff', padding: '2.5rem', borderRadius: '12px', border: '1px solid #fef3c7', boxShadow: '0 4px 15px rgba(0,0,0,0.08)', width: '100%', maxWidth: '380px' }}>
-          <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-            <h1 style={{ color: '#d97706', margin: '0 0 0.5rem 0', fontSize: '1.8rem' }}>💄 YAJA MAKEUP</h1>
-            <p style={{ color: '#6b7280', margin: 0, fontSize: '0.9rem' }}>Panel de Administración Privado</p>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: '#fffcf8', fontFamily: 'sans-serif', padding: '1rem', boxSizing: 'border-box' }}>
+        <div style={{ background: '#fff', padding: esMovil ? '1.5rem' : '2.5rem', borderRadius: '12px', border: '1px solid #fef3c7', boxShadow: '0 4px 15px rgba(0,0,0,0.08)', width: '100%', maxWidth: '380px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '1.2rem' }}>
+            <h1 style={{ color: '#d97706', margin: '0 0 0.5rem 0', fontSize: '1.6rem' }}>💄 YAJA MAKEUP</h1>
+            <p style={{ color: '#6b7280', margin: 0, fontSize: '0.85rem' }}>Panel de Administración Privado</p>
           </div>
 
           {errorLogin && (
-            <div style={{ background: '#fee2e2', color: '#b91c1c', padding: '0.6rem', borderRadius: '6px', fontSize: '0.85rem', marginBottom: '1rem', textAlign: 'center', fontWeight: 'bold' }}>
+            <div style={{ background: '#fee2e2', color: '#b91c1c', padding: '0.5rem', borderRadius: '6px', fontSize: '0.8rem', marginBottom: '1rem', textAlign: 'center', fontWeight: 'bold' }}>
               {errorLogin}
             </div>
           )}
 
-          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
             <div>
-              <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#374151', display: 'block', marginBottom: '0.3rem' }}>Usuario:</label>
+              <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#374151', display: 'block', marginBottom: '0.2rem' }}>Usuario:</label>
               <input 
                 type="text" 
                 placeholder="Ingresa tu usuario" 
                 value={inputUsuario} 
                 onChange={(e) => setInputUsuario(e.target.value)}
-                style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '1rem', boxSizing: 'border-box' }}
+                style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.95rem', boxSizing: 'border-box' }}
                 required
               />
             </div>
 
             <div>
-              <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#374151', display: 'block', marginBottom: '0.3rem' }}>Contraseña:</label>
+              <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#374151', display: 'block', marginBottom: '0.2rem' }}>Contraseña:</label>
               <input 
                 type="password" 
                 placeholder="••••••••" 
                 value={inputClave} 
                 onChange={(e) => setInputClave(e.target.value)}
-                style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '1rem', boxSizing: 'border-box' }}
+                style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.95rem', boxSizing: 'border-box' }}
                 required
               />
             </div>
 
             <button 
               type="submit" 
-              style={{ background: '#d97706', color: 'white', padding: '0.75rem', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', marginTop: '0.5rem' }}
+              style={{ background: '#d97706', color: 'white', padding: '0.7rem', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', marginTop: '0.4rem' }}
             >
               🔐 Iniciar Sesión
             </button>
@@ -383,271 +370,175 @@ export default function App() {
     )
   }
 
-  // CÁLCULOS DE MÉTRICAS FINANCIERAS
   const totalVendido = ventas.reduce((acc, v) => acc + (v.total || 0), 0)
-  
-  const totalBase = ventas.reduce((acc, v) => {
-    return acc + ((v.total || 0) * 0.6) 
-  }, 0)
-
+  const totalBase = ventas.reduce((acc, v) => acc + ((v.total || 0) * 0.6), 0)
   const gananciaTotal = Math.max(totalVendido - totalBase, 0)
   const totalPorCobrar = ventas.reduce((acc, v) => acc + Math.max((v.total || 0) - (v.monto_pagado || 0), 0), 0)
 
-  // Paginación
   const indiceUltimo = paginaActual * productosPorPagina
   const productosActuales = productos.slice(indiceUltimo - productosPorPagina, indiceUltimo)
   const totalPaginas = Math.ceil(productos.length / productosPorPagina) || 1
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'sans-serif', maxWidth: '1200px', margin: '0 auto', minHeight: '100vh' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
-        <h1 style={{ color: '#d97706', margin: 0 }}>💄 YAJA MAKEUP - Panel Administrador</h1>
+    <div style={{ padding: esMovil ? '0.8rem' : '2rem', fontFamily: 'sans-serif', maxWidth: '1200px', margin: '0 auto', minHeight: '100vh', boxSizing: 'border-box' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.8rem' }}>
+        <h1 style={{ color: '#d97706', margin: 0, fontSize: esMovil ? '1.3rem' : '1.8rem' }}>💄 YAJA MAKEUP - Admin</h1>
         
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', gap: '0.4rem', width: esMovil ? '100%' : 'auto' }}>
           <button 
             onClick={handleReiniciarContadores} 
             style={{ 
+              flex: esMovil ? 1 : 'none',
               background: '#ef4444', 
               color: 'white', 
               border: 'none', 
-              padding: '0.6rem 1rem', 
+              padding: '0.5rem 0.8rem', 
               borderRadius: '6px', 
               cursor: 'pointer', 
               fontWeight: 'bold', 
-              fontSize: '0.9rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.4rem'
+              fontSize: '0.8rem'
             }}
           >
-            🔄 Reiniciar Contadores ($0)
+            🔄 Reset ($0)
           </button>
 
           <button 
             onClick={handleLogout} 
             style={{ 
+              flex: esMovil ? 1 : 'none',
               background: '#4b5563', 
               color: 'white', 
               border: 'none', 
-              padding: '0.6rem 1rem', 
+              padding: '0.5rem 0.8rem', 
               borderRadius: '6px', 
               cursor: 'pointer', 
               fontWeight: 'bold', 
-              fontSize: '0.9rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.4rem'
+              fontSize: '0.8rem'
             }}
           >
-            🔒 Cerrar Sesión
+            🔒 Salir
           </button>
         </div>
       </div>
 
-      {/* TARJETAS SUPERIORES DE MÉTRICAS */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-        <div style={{ background: '#eff6ff', padding: '1.2rem', borderRadius: '10px', border: '1px solid #bfdbfe' }}>
-          <h4 style={{ margin: '0 0 0.5rem 0', color: '#1e40af' }}>🛍️ Total Vendido (Salida)</h4>
-          <span style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#1e3a8a' }}>${totalVendido.toLocaleString()}</span>
-          <p style={{ margin: '0.3rem 0 0 0', fontSize: '0.8rem', color: '#2563eb' }}>Valor bruto acumulado</p>
+      {/* Tarjetas Superiores */}
+      <div style={{ display: 'grid', gridTemplateColumns: esMovil ? '1fr' : 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.8rem', marginBottom: '1.5rem' }}>
+        <div style={{ background: '#eff6ff', padding: '1rem', borderRadius: '10px', border: '1px solid #bfdbfe' }}>
+          <h4 style={{ margin: '0 0 0.3rem 0', color: '#1e40af', fontSize: '0.9rem' }}>🛍️ Total Vendido</h4>
+          <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#1e3a8a' }}>${totalVendido.toLocaleString()}</span>
         </div>
 
-        <div style={{ background: '#fef3c7', padding: '1.2rem', borderRadius: '10px', border: '1px solid #fcd34d' }}>
-          <h4 style={{ margin: '0 0 0.5rem 0', color: '#b45309' }}>🛒 Total Base (Entrada/Costo)</h4>
-          <span style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#92400e' }}>${Math.round(totalBase).toLocaleString()}</span>
-          <p style={{ margin: '0.3rem 0 0 0', fontSize: '0.8rem', color: '#b45309' }}>Costo de mercancía vendida</p>
+        <div style={{ background: '#fef3c7', padding: '1rem', borderRadius: '10px', border: '1px solid #fcd34d' }}>
+          <h4 style={{ margin: '0 0 0.3rem 0', color: '#b45309', fontSize: '0.9rem' }}>🛒 Total Base (Costo)</h4>
+          <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#92400e' }}>${Math.round(totalBase).toLocaleString()}</span>
         </div>
 
-        <div style={{ background: '#d1fae5', padding: '1.2rem', borderRadius: '10px', border: '1px solid #6ee7b7' }}>
-          <h4 style={{ margin: '0 0 0.5rem 0', color: '#047857' }}>📈 Ganancia Total Generada</h4>
-          <span style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#065f46' }}>${Math.round(gananciaTotal).toLocaleString()}</span>
-          <p style={{ margin: '0.3rem 0 0 0', fontSize: '0.8rem', color: '#047857' }}>Ganancia neta (Salida - Base)</p>
+        <div style={{ background: '#d1fae5', padding: '1rem', borderRadius: '10px', border: '1px solid #6ee7b7' }}>
+          <h4 style={{ margin: '0 0 0.3rem 0', color: '#047857', fontSize: '0.9rem' }}>📈 Ganancia Total</h4>
+          <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#065f46' }}>${Math.round(gananciaTotal).toLocaleString()}</span>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2.5fr 1fr', gap: '2rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: esMovil ? '1fr' : '2.5fr 1fr', gap: '1.5rem' }}>
         <div>
-          {/* Formulario de Registro / Edición de Producto */}
-          <div style={{ background: productoEditando ? '#fffbebf0' : '#f9fafb', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem', border: productoEditando ? '2px solid #f59e0b' : '1px solid #e5e7eb' }}>
+          {/* Formulario */}
+          <div style={{ background: productoEditando ? '#fffbebf0' : '#f9fafb', padding: '0.8rem', borderRadius: '8px', marginBottom: '1.2rem', border: productoEditando ? '2px solid #f59e0b' : '1px solid #e5e7eb' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-              <h3 style={{ margin: 0, color: productoEditando ? '#b45309' : '#111827' }}>
-                {productoEditando ? '✏️ Editando Producto' : '➕ Registrar Nuevo Producto'}
+              <h3 style={{ margin: 0, color: productoEditando ? '#b45309' : '#111827', fontSize: '1rem' }}>
+                {productoEditando ? '✏️ Editando Producto' : '➕ Registrar Producto'}
               </h3>
               {productoEditando && (
-                <button onClick={cancelarEdicion} style={{ background: '#6b7280', color: 'white', border: 'none', padding: '0.3rem 0.6rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>
-                  Cancelar Edición
+                <button onClick={cancelarEdicion} style={{ background: '#6b7280', color: 'white', border: 'none', padding: '0.2rem 0.5rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>
+                  Cancelar
                 </button>
               )}
             </div>
 
-            <form onSubmit={handleGuardarProducto} style={{ display: 'grid', gap: '0.5rem', gridTemplateColumns: '1fr 1fr' }}>
-              <input type="text" placeholder="Nombre del producto" value={nombre} onChange={(e) => setNombre(e.target.value)} required />
+            <form onSubmit={handleGuardarProducto} style={{ display: 'grid', gap: '0.5rem', gridTemplateColumns: esMovil ? '1fr' : '1fr 1fr' }}>
+              <input type="text" placeholder="Nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} required style={{ padding: '0.5rem', fontSize: '0.85rem' }} />
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
                 <select 
                   value={categoria} 
                   onChange={handleSelectCategoria}
-                  style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #d1d5db', background: '#fff', fontSize: '0.9rem' }}
+                  style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #d1d5db', background: '#fff', fontSize: '0.85rem' }}
                 >
                   <option value="Labiales">💄 Labiales</option>
                   <option value="Sérums">🧪 Sérums</option>
                   <option value="Cuidado Facial">🌸 Cuidado Facial</option>
                   <option value="Maquillaje">💅 Maquillaje</option>
-                  <option value="OTRA">➕ Agregar nueva categoría...</option>
+                  <option value="OTRA">➕ Agregar nueva...</option>
                 </select>
 
                 {esNuevaCategoria && (
                   <input 
                     type="text" 
-                    placeholder="Escribe la nueva categoría" 
+                    placeholder="Nueva categoría" 
                     value={nuevaCategoria} 
                     onChange={(e) => setNuevaCategoria(e.target.value)}
-                    style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid #f59e0b', background: '#fffbe3' }}
+                    style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid #f59e0b', background: '#fffbe3', fontSize: '0.85rem' }}
                     required
                   />
                 )}
               </div>
 
-              <input type="number" placeholder="Stock disponible" value={stock} onChange={(e) => setStock(e.target.value)} required />
-              
-              <input 
-                type="number" 
-                step="0.01" 
-                placeholder="Precio Entrada (Costo Compra $)" 
-                value={precioEntrada} 
-                onChange={(e) => setPrecioEntrada(e.target.value)} 
-              />
-
-              <input 
-                type="number" 
-                step="0.01" 
-                placeholder="Precio Salida (Venta Cliente $)" 
-                value={precioVenta} 
-                onChange={(e) => setPrecioVenta(e.target.value)} 
-                required 
-              />
-
-              <input 
-                type="text" 
-                placeholder="URL de la imagen (Ej: https://misitio.com/foto.jpg)" 
-                value={imagenUrl} 
-                onChange={(e) => setImagenUrl(e.target.value)} 
-                style={{ gridColumn: 'span 2' }}
-              />
-              <textarea 
-                placeholder="¿Para qué sirve? (Descripción breve)" 
-                value={descripcion} 
-                onChange={(e) => setDescripcion(e.target.value)} 
-                style={{ gridColumn: 'span 2', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
-                rows={2}
-              />
-              <button type="submit" style={{ gridColumn: 'span 2', background: productoEditando ? '#f59e0b' : '#d97706', color: 'white', padding: '0.6rem', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>
-                {productoEditando ? '💾 Actualizar Producto' : 'Guardar Producto'}
+              <input type="number" placeholder="Stock" value={stock} onChange={(e) => setStock(e.target.value)} required style={{ padding: '0.5rem', fontSize: '0.85rem' }} />
+              <input type="number" step="0.01" placeholder="Precio Entrada ($)" value={precioEntrada} onChange={(e) => setPrecioEntrada(e.target.value)} style={{ padding: '0.5rem', fontSize: '0.85rem' }} />
+              <input type="number" step="0.01" placeholder="Precio Salida ($)" value={precioVenta} onChange={(e) => setPrecioVenta(e.target.value)} required style={{ padding: '0.5rem', fontSize: '0.85rem' }} />
+              <input type="text" placeholder="URL de la imagen" value={imagenUrl} onChange={(e) => setImagenUrl(e.target.value)} style={{ gridColumn: esMovil ? 'span 1' : 'span 2', padding: '0.5rem', fontSize: '0.85rem' }} />
+              <textarea placeholder="Descripción breve" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} style={{ gridColumn: esMovil ? 'span 1' : 'span 2', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc', fontSize: '0.85rem' }} rows={2} />
+              <button type="submit" style={{ gridColumn: esMovil ? 'span 1' : 'span 2', background: productoEditando ? '#f59e0b' : '#d97706', color: 'white', padding: '0.6rem', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9rem' }}>
+                {productoEditando ? '💾 Actualizar' : 'Guardar Producto'}
               </button>
             </form>
           </div>
 
           {/* Catálogo en tarjetas */}
-          <h3>Catálogo de Productos ({productos.length})</h3>
-          {loading ? <p>Cargando inventario...</p> : (
+          <h3 style={{ fontSize: '1.1rem' }}>Catálogo ({productos.length})</h3>
+          {loading ? <p style={{ fontSize: '0.85rem' }}>Cargando inventario...</p> : (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: esMovil ? 'repeat(auto-fill, minmax(140px, 1fr))' : 'repeat(auto-fill, minmax(220px, 1fr))', gap: esMovil ? '0.8rem' : '1rem', marginBottom: '1.2rem' }}>
                 {productosActuales.map((p) => {
                   const foto = esUrlValida(p.imagen_url) ? p.imagen_url : IMAGEN_DEFAULT
                   const costo = p.precio_costo || p.precio_entrada || 0
                   const gananciaUnitaria = p.precio_venta - costo
 
                   return (
-                    <div key={p.id} style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '0.8rem', background: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', position: 'relative' }}>
+                    <div key={p.id} style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '0.6rem', background: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', position: 'relative' }}>
                       <button 
                         onClick={() => handleEliminarProducto(p.id, p.nombre)}
-                        title="Eliminar producto"
-                        style={{
-                          position: 'absolute',
-                          top: '10px',
-                          right: '10px',
-                          background: 'rgba(239, 68, 68, 0.9)',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '50%',
-                          width: '26px',
-                          height: '26px',
-                          cursor: 'pointer',
-                          fontWeight: 'bold',
-                          fontSize: '0.8rem',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          zIndex: 2
-                        }}
+                        style={{ position: 'absolute', top: '8px', right: '8px', background: 'rgba(239, 68, 68, 0.9)', color: 'white', border: 'none', borderRadius: '50%', width: '22px', height: '22px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.75rem', zIndex: 2 }}
                       >
                         ✕
                       </button>
 
                       <div>
-                        <img 
-                          src={foto} 
-                          alt={p.nombre || 'Producto'} 
-                          onError={(e) => { 
-                            e.target.onerror = null; 
-                            e.target.src = IMAGEN_DEFAULT; 
-                          }}
-                          style={{ width: '100%', height: '130px', objectFit: 'cover', borderRadius: '6px', marginBottom: '0.5rem' }} 
-                        />
-                        <h4 style={{ margin: '0 0 0.2rem 0', color: '#1f2937', paddingRight: '20px' }}>{p.nombre}</h4>
-                        <span style={{ fontSize: '0.75rem', background: '#fef3c7', color: '#b45309', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 'bold' }}>
-                          {p.categoria || 'General'}
-                        </span>
-                        <p style={{ fontSize: '0.8rem', color: '#4b5563', margin: '0.4rem 0' }}>
-                          💡 <strong>Uso:</strong> {p.descripcion || 'Sin descripción'}
-                        </p>
+                        <img src={foto} alt={p.nombre || 'Producto'} onError={(e) => { e.target.onerror = null; e.target.src = IMAGEN_DEFAULT; }} style={{ width: '100%', height: esMovil ? '100px' : '130px', objectFit: 'cover', borderRadius: '6px', marginBottom: '0.4rem' }} />
+                        <h4 style={{ margin: '0 0 0.2rem 0', color: '#1f2937', fontSize: esMovil ? '0.85rem' : '1rem' }}>{p.nombre}</h4>
                         
-                        <div style={{ background: '#f9fafb', padding: '0.4rem', borderRadius: '6px', marginBottom: '0.5rem', fontSize: '0.8rem' }}>
+                        <div style={{ background: '#f9fafb', padding: '0.3rem', borderRadius: '4px', marginBottom: '0.4rem', fontSize: '0.75rem' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', color: '#6b7280' }}>
-                            <span>Entrada (Costo):</span>
+                            <span>Entrada:</span>
                             <span>${costo}</span>
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', color: '#d97706' }}>
-                            <span>Salida (Venta):</span>
+                            <span>Salida:</span>
                             <span>${p.precio_venta}</span>
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', color: '#059669', borderTop: '1px dashed #e5e7eb', marginTop: '0.2rem', paddingTop: '0.2rem' }}>
-                            <span>Ganancia c/u:</span>
+                            <span>Ganancia:</span>
                             <span>+${gananciaUnitaria}</span>
                           </div>
                         </div>
 
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem', marginBottom: '0.5rem' }}>
-                          <span style={{ color: p.stock <= 0 ? '#dc2626' : p.stock < 3 ? '#d97706' : '#059669', fontWeight: 'bold' }}>
-                            {p.stock <= 0 ? '❌ Agotado (0)' : `📦 Quedan: ${p.stock}`}
-                          </span>
+                        <div style={{ fontSize: '0.75rem', color: p.stock <= 0 ? '#dc2626' : p.stock < 3 ? '#d97706' : '#059669', fontWeight: 'bold', marginBottom: '0.4rem' }}>
+                          {p.stock <= 0 ? '❌ Agotado' : `📦 Stock: ${p.stock}`}
                         </div>
                       </div>
 
-                      <div style={{ display: 'flex', gap: '0.4rem' }}>
-                        <button 
-                          onClick={() => iniciarEdicion(p)}
-                          style={{ flex: 1, background: '#3b82f6', color: 'white', border: 'none', padding: '0.4rem', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
-                        >
-                          ✏️ Editar
-                        </button>
-                        <button 
-                          onClick={() => agregarAlCarrito(p)} 
-                          disabled={p.stock <= 0} 
-                          style={{ 
-                            flex: 1,
-                            background: p.stock <= 0 ? '#9ca3af' : '#10b981', 
-                            color: 'white', 
-                            border: 'none', 
-                            padding: '0.4rem', 
-                            borderRadius: '4px', 
-                            cursor: p.stock <= 0 ? 'not-allowed' : 'pointer',
-                            fontWeight: 'bold',
-                            fontSize: '0.85rem'
-                          }}
-                        >
-                          🛒 Vender
-                        </button>
+                      <div style={{ display: 'flex', gap: '0.3rem' }}>
+                        <button onClick={() => iniciarEdicion(p)} style={{ flex: 1, background: '#3b82f6', color: 'white', border: 'none', padding: '0.3rem', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.75rem' }}>✏️ Edit</button>
+                        <button onClick={() => agregarAlCarrito(p)} disabled={p.stock <= 0} style={{ flex: 1, background: p.stock <= 0 ? '#9ca3af' : '#10b981', color: 'white', border: 'none', padding: '0.3rem', borderRadius: '4px', cursor: p.stock <= 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '0.75rem' }}>🛒 Vender</button>
                       </div>
                     </div>
                   )
@@ -655,89 +546,83 @@ export default function App() {
               </div>
 
               {totalPaginas > 1 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', fontSize: '0.85rem' }}>
                   <button onClick={() => setPaginaActual((prev) => Math.max(prev - 1, 1))} disabled={paginaActual === 1}>Anterior</button>
-                  <span>Página {paginaActual} de {totalPaginas}</span>
+                  <span>Pág {paginaActual} / {totalPaginas}</span>
                   <button onClick={() => setPaginaActual((prev) => Math.min(prev + 1, totalPaginas))} disabled={paginaActual === totalPaginas}>Siguiente</button>
                 </div>
               )}
             </>
           )}
 
-          {/* TABLA DE HISTORIAL DE VENTAS */}
-          <h3>📋 Historial de Ventas</h3>
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '0.5rem' }}>
-            <thead>
-              <tr style={{ background: '#f3f4f6', textAlign: 'left' }}>
-                <th style={{ padding: '0.5rem' }}>Cliente</th>
-                <th style={{ padding: '0.5rem' }}>Total</th>
-                <th style={{ padding: '0.5rem' }}>Pagado</th>
-                <th style={{ padding: '0.5rem' }}>Debe</th>
-                <th style={{ padding: '0.5rem' }}>Estado</th>
-                <th style={{ padding: '0.5rem' }}>Abonar</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ventas.length === 0 ? (
-                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '1rem', color: '#9ca3af' }}>No hay ventas registradas aún. Contadores en $0.</td></tr>
-              ) : (
-                ventas.map((v) => {
-                  const debe = v.total - v.monto_pagado
-                  return (
-                    <tr key={v.id} style={{ borderBottom: '1px solid #ddd' }}>
-                      <td style={{ padding: '0.5rem', fontWeight: '500' }}>{v.clientes?.nombre || 'Cliente Web / WhatsApp'}</td>
-                      <td style={{ padding: '0.5rem', fontWeight: 'bold' }}>${v.total?.toLocaleString()}</td>
-                      <td style={{ padding: '0.5rem', color: '#059669' }}>${v.monto_pagado?.toLocaleString()}</td>
-                      <td style={{ padding: '0.5rem', color: debe > 0 ? '#dc2626' : '#10b981', fontWeight: 'bold' }}>
-                        ${debe > 0 ? debe.toLocaleString() : 0}
-                      </td>
-                      <td style={{ padding: '0.5rem' }}>
-                        <span style={{ 
-                          padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.8rem', color: 'white', fontWeight: 'bold',
-                          background: v.estado === 'Pagado' ? '#10b981' : v.estado === 'Abonado' ? '#f59e0b' : '#ef4444' 
-                        }}>
-                          {v.estado}
-                        </span>
-                      </td>
-                      <td style={{ padding: '0.5rem' }}>
-                        {debe > 0 && (
-                          <button onClick={() => registrarAbono(v)} style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '0.2rem 0.5rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>
-                            + Abono
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
+          {/* Tabla de Historial con Desplazamiento Horizontal en Móvil */}
+          <h3 style={{ fontSize: '1.1rem' }}>📋 Historial de Ventas</h3>
+          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', marginBottom: '1.5rem' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '0.5rem', minWidth: '500px', fontSize: '0.85rem' }}>
+              <thead>
+                <tr style={{ background: '#f3f4f6', textAlign: 'left' }}>
+                  <th style={{ padding: '0.4rem' }}>Cliente</th>
+                  <th style={{ padding: '0.4rem' }}>Total</th>
+                  <th style={{ padding: '0.4rem' }}>Pagado</th>
+                  <th style={{ padding: '0.4rem' }}>Debe</th>
+                  <th style={{ padding: '0.4rem' }}>Estado</th>
+                  <th style={{ padding: '0.4rem' }}>Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ventas.length === 0 ? (
+                  <tr><td colSpan={6} style={{ textAlign: 'center', padding: '0.8rem', color: '#9ca3af' }}>No hay ventas registradas.</td></tr>
+                ) : (
+                  ventas.map((v) => {
+                    const debe = v.total - v.monto_pagado
+                    return (
+                      <tr key={v.id} style={{ borderBottom: '1px solid #ddd' }}>
+                        <td style={{ padding: '0.4rem' }}>{v.clientes?.nombre || 'Cliente Web'}</td>
+                        <td style={{ padding: '0.4rem', fontWeight: 'bold' }}>${v.total?.toLocaleString()}</td>
+                        <td style={{ padding: '0.4rem', color: '#059669' }}>${v.monto_pagado?.toLocaleString()}</td>
+                        <td style={{ padding: '0.4rem', color: debe > 0 ? '#dc2626' : '#10b981', fontWeight: 'bold' }}>${debe > 0 ? debe.toLocaleString() : 0}</td>
+                        <td style={{ padding: '0.4rem' }}>
+                          <span style={{ padding: '0.15rem 0.4rem', borderRadius: '4px', fontSize: '0.75rem', color: 'white', fontWeight: 'bold', background: v.estado === 'Pagado' ? '#10b981' : v.estado === 'Abonado' ? '#f59e0b' : '#ef4444' }}>
+                            {v.estado}
+                          </span>
+                        </td>
+                        <td style={{ padding: '0.4rem' }}>
+                          {debe > 0 && (
+                            <button onClick={() => registrarAbono(v)} style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '0.2rem 0.4rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>+ Abono</button>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        {/* PANEL LATERAL */}
+        {/* Panel Lateral */}
         <div>
-          <div style={{ background: '#f9fafb', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid #e5e7eb' }}>
-            <h3>👤 Nuevo Cliente</h3>
-            <form onSubmit={handleAgregarCliente} style={{ display: 'grid', gap: '0.5rem' }}>
-              <input type="text" placeholder="Nombre completo" value={clienteNombre} onChange={(e) => setClienteNombre(e.target.value)} required />
-              <input type="text" placeholder="Teléfono" value={clienteTelefono} onChange={(e) => setClienteTelefono(e.target.value)} />
-              <button type="submit" style={{ background: '#2563eb', color: 'white', padding: '0.5rem', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Guardar Cliente</button>
+          <div style={{ background: '#f9fafb', padding: '0.8rem', borderRadius: '8px', marginBottom: '1.2rem', border: '1px solid #e5e7eb' }}>
+            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem' }}>👤 Nuevo Cliente</h3>
+            <form onSubmit={handleAgregarCliente} style={{ display: 'grid', gap: '0.4rem' }}>
+              <input type="text" placeholder="Nombre completo" value={clienteNombre} onChange={(e) => setClienteNombre(e.target.value)} required style={{ padding: '0.4rem', fontSize: '0.85rem' }} />
+              <input type="text" placeholder="Teléfono" value={clienteTelefono} onChange={(e) => setClienteTelefono(e.target.value)} style={{ padding: '0.4rem', fontSize: '0.85rem' }} />
+              <button type="submit" style={{ background: '#2563eb', color: 'white', padding: '0.5rem', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>Guardar Cliente</button>
             </form>
           </div>
 
-          <div style={{ background: '#fff5f5', border: '1px solid #feb2b2', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem' }}>
-            <h3 style={{ color: '#c53030', margin: '0 0 0.5rem 0' }}>📌 Fiados / Por Cobrar</h3>
-            <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#9b2c2c', marginBottom: '0.8rem' }}>
+          <div style={{ background: '#fff5f5', border: '1px solid #feb2b2', padding: '0.8rem', borderRadius: '8px', marginBottom: '1.2rem' }}>
+            <h3 style={{ color: '#c53030', margin: '0 0 0.3rem 0', fontSize: '1rem' }}>📌 Fiados / Por Cobrar</h3>
+            <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#9b2c2c', marginBottom: '0.5rem' }}>
               Total Deuda: ${totalPorCobrar.toLocaleString()}
             </div>
             
-            <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#742a2a' }}>Desglose por clientes debiendo:</label>
-            <div style={{ marginTop: '0.5rem', maxHeight: '180px', overflowY: 'auto' }}>
+            <div style={{ maxHeight: '150px', overflowY: 'auto' }}>
               {ventas.filter(v => (v.total - v.monto_pagado) > 0).length === 0 ? (
                 <p style={{ fontSize: '0.8rem', color: '#718096' }}>🎉 ¡Nadie te debe en este momento!</p>
               ) : (
                 ventas.filter(v => (v.total - v.monto_pagado) > 0).map(v => (
-                  <div key={v.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.3rem 0', borderBottom: '1px dashed #fed7d7', fontSize: '0.85rem' }}>
+                  <div key={v.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.2rem 0', borderBottom: '1px dashed #fed7d7', fontSize: '0.8rem' }}>
                     <span>{v.clientes?.nombre || 'Cliente'}:</span>
                     <strong style={{ color: '#e53e3e' }}>${(v.total - v.monto_pagado).toLocaleString()}</strong>
                   </div>
@@ -746,37 +631,37 @@ export default function App() {
             </div>
           </div>
 
-          <div style={{ background: '#fff', border: '1px solid #e5e7eb', padding: '1rem', borderRadius: '8px' }}>
-            <h3>🛒 Vender / Fiar</h3>
-            {carrito.length === 0 ? <p style={{ color: '#6b7280' }}>Carrito vacío</p> : (
+          <div style={{ background: '#fff', border: '1px solid #e5e7eb', padding: '0.8rem', borderRadius: '8px' }}>
+            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem' }}>🛒 Vender / Fiar</h3>
+            {carrito.length === 0 ? <p style={{ color: '#6b7280', fontSize: '0.85rem' }}>Carrito vacío</p> : (
               <>
                 {carrito.map((i) => (
-                  <div key={i.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <div key={i.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem', fontSize: '0.85rem' }}>
                     <span>{i.nombre} ({i.cantidad})</span>
                     <span>${i.cantidad * i.precio_venta}</span>
                   </div>
                 ))}
                 <hr />
-                <h4>Total: ${totalCarrito}</h4>
+                <h4 style={{ margin: '0.5rem 0' }}>Total: ${totalCarrito}</h4>
 
                 <label><small>Asignar Cliente:</small></label>
-                <select value={clienteSeleccionado} onChange={(e) => setClienteSeleccionado(e.target.value)} style={{ width: '100%', marginBottom: '0.5rem', padding: '0.4rem' }}>
+                <select value={clienteSeleccionado} onChange={(e) => setClienteSeleccionado(e.target.value)} style={{ width: '100%', marginBottom: '0.4rem', padding: '0.4rem', fontSize: '0.85rem' }}>
                   <option value="">-- Seleccionar Cliente --</option>
                   {clientes.map((c) => (
                     <option key={c.id} value={c.id}>{c.nombre}</option>
                   ))}
                 </select>
 
-                <label><small>Monto Abonado / Pagado ($):</small></label>
+                <label><small>Monto Abonado ($):</small></label>
                 <input 
                   type="number" 
                   placeholder="0 (Si es todo fiado)" 
                   value={montoAbonoInicial} 
                   onChange={(e) => setMontoAbonoInicial(e.target.value)}
-                  style={{ width: '100%', marginBottom: '1rem', padding: '0.4rem' }}
+                  style={{ width: '100%', marginBottom: '0.8rem', padding: '0.4rem', fontSize: '0.85rem' }}
                 />
 
-                <button onClick={registrarVenta} disabled={procesandoCompra} style={{ width: '100%', background: '#10b981', color: 'white', padding: '0.6rem', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>
+                <button onClick={registrarVenta} disabled={procesandoCompra} style={{ width: '100%', background: '#10b981', color: 'white', padding: '0.5rem', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9rem' }}>
                   Confirmar Venta
                 </button>
               </>
