@@ -23,6 +23,9 @@ export default function App() {
   const [ventas, setVentas] = useState([])
   const [loading, setLoading] = useState(true)
 
+  // NUEVO: Buscador en el Admin para filtrar productos
+  const [busquedaAdmin, setBusquedaAdmin] = useState('')
+
   const [productoEditando, setProductoEditando] = useState(null)
   const [nombre, setNombre] = useState('')
   const [stock, setStock] = useState('')
@@ -120,6 +123,26 @@ export default function App() {
     } catch (_) {
       return false
     }
+  }
+
+  // NUEVO: Función para descargar reporte de cuentas en CSV (Excel)
+  const descargarReporteCSV = () => {
+    if (ventas.length === 0) return alert('No hay ventas registradas para exportar.')
+    
+    let csvContent = "data:text/csv;charset=utf-8,ID Venta,Cliente,Total Venta,Monto Pagado,Deuda,Estado\n"
+    ventas.forEach(v => {
+      const debe = v.total - v.monto_pagado
+      const nombreCliente = (v.clientes?.nombre || 'Cliente Web').replace(/,/g, '')
+      csvContent += `${v.id},${nombreCliente},${v.total},${v.monto_pagado},${debe},${v.estado}\n`
+    })
+
+    const encodedUri = encodeURI(csvContent)
+    const link = document.createElement("a")
+    link.setAttribute("href", encodedUri)
+    link.setAttribute("download", "reporte_cuentas_yaja_makeup.csv")
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   }
 
   function iniciarEdicion(prod) {
@@ -221,7 +244,7 @@ export default function App() {
   }
 
   async function handleReiniciarContadores() {
-    const confirmacion = confirm('⚠️ ¿Estás seguro de reiniciar todos los contadores de ventas y ganancias a $0?\n\nEsta acción borrará el historial de ventas acumuladas.')
+    const confirmacion = confirm('⚠️ ¿Estás seguro de reiniciar todos los contadores de ventas y ganancias a $0?')
     if (!confirmacion) return
 
     try {
@@ -321,7 +344,7 @@ export default function App() {
   if (!autenticado) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: '#fffcf8', fontFamily: 'sans-serif', padding: '1rem', boxSizing: 'border-box' }}>
-        <div style={{ background: '#fff', padding: esMovil ? '1.5rem' : '2.5rem', borderRadius: '12px', border: '1px solid #fef3c7', boxShadow: '0 4px 15px rgba(0,0,0,0.08)', width: '100%', maxWidth: '380px' }}>
+        <div style={{ background: '#fff', padding: '2rem', borderRadius: '12px', border: '1px solid #fef3c7', boxShadow: '0 4px 15px rgba(0,0,0,0.08)', width: '100%', maxWidth: '380px', boxSizing: 'border-box' }}>
           <div style={{ textAlign: 'center', marginBottom: '1.2rem' }}>
             <h1 style={{ color: '#d97706', margin: '0 0 0.5rem 0', fontSize: '1.6rem' }}>💄 YAJA MAKEUP</h1>
             <p style={{ color: '#6b7280', margin: 0, fontSize: '0.85rem' }}>Panel de Administración Privado</p>
@@ -360,7 +383,7 @@ export default function App() {
 
             <button 
               type="submit" 
-              style={{ background: '#d97706', color: 'white', padding: '0.7rem', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', marginTop: '0.4rem' }}
+              style={{ background: '#d97706', color: 'white', padding: '0.7rem', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', marginTop: '0.4rem', width: '100%', boxSizing: 'border-box' }}
             >
               🔐 Iniciar Sesión
             </button>
@@ -375,24 +398,50 @@ export default function App() {
   const gananciaTotal = Math.max(totalVendido - totalBase, 0)
   const totalPorCobrar = ventas.reduce((acc, v) => acc + Math.max((v.total || 0) - (v.monto_pagado || 0), 0), 0)
 
+  // Filtrado de productos en el Admin mediante el buscador
+  const productosFiltradosAdmin = productos.filter((p) => {
+    const nombreProd = p.nombre ? p.nombre.toLowerCase() : ''
+    const catProd = p.categoria ? p.categoria.toLowerCase() : ''
+    const query = busquedaAdmin.toLowerCase()
+    return nombreProd.includes(query) || catProd.includes(query)
+  })
+
   const indiceUltimo = paginaActual * productosPorPagina
-  const productosActuales = productos.slice(indiceUltimo - productosPorPagina, indiceUltimo)
-  const totalPaginas = Math.ceil(productos.length / productosPorPagina) || 1
+  const productosActuales = productosFiltradosAdmin.slice(indiceUltimo - productosPorPagina, indiceUltimo)
+  const totalPaginas = Math.ceil(productosFiltradosAdmin.length / productosPorPagina) || 1
 
   return (
-    <div style={{ padding: esMovil ? '0.8rem' : '2rem', fontFamily: 'sans-serif', maxWidth: '1200px', margin: '0 auto', minHeight: '100vh', boxSizing: 'border-box' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.8rem' }}>
-        <h1 style={{ color: '#d97706', margin: 0, fontSize: esMovil ? '1.3rem' : '1.8rem' }}>💄 YAJA MAKEUP - Admin</h1>
+    <div style={{ padding: esMovil ? '0.6rem' : '1.5rem', fontFamily: 'sans-serif', maxWidth: '1200px', margin: '0 auto', minHeight: '100vh', boxSizing: 'border-box', overflowX: 'hidden' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.6rem' }}>
+        <h1 style={{ color: '#d97706', margin: 0, fontSize: esMovil ? '1.2rem' : '1.8rem' }}>💄 YAJA MAKEUP - Admin</h1>
         
-        <div style={{ display: 'flex', gap: '0.4rem', width: esMovil ? '100%' : 'auto' }}>
+        <div style={{ display: 'flex', gap: '0.4rem', width: esMovil ? '100%' : 'auto', flexWrap: 'wrap' }}>
+          {/* NUEVO: Botón Descargar Reporte */}
+          <button 
+            onClick={descargarReporteCSV} 
+            style={{ 
+              flex: 1,
+              background: '#059669', 
+              color: 'white', 
+              border: 'none', 
+              padding: '0.5rem 0.6rem', 
+              borderRadius: '6px', 
+              cursor: 'pointer', 
+              fontWeight: 'bold', 
+              fontSize: '0.8rem'
+            }}
+          >
+            📥 Descargar Cuentas
+          </button>
+
           <button 
             onClick={handleReiniciarContadores} 
             style={{ 
-              flex: esMovil ? 1 : 'none',
+              flex: 1,
               background: '#ef4444', 
               color: 'white', 
               border: 'none', 
-              padding: '0.5rem 0.8rem', 
+              padding: '0.5rem 0.6rem', 
               borderRadius: '6px', 
               cursor: 'pointer', 
               fontWeight: 'bold', 
@@ -405,11 +454,11 @@ export default function App() {
           <button 
             onClick={handleLogout} 
             style={{ 
-              flex: esMovil ? 1 : 'none',
+              flex: 1,
               background: '#4b5563', 
               color: 'white', 
               border: 'none', 
-              padding: '0.5rem 0.8rem', 
+              padding: '0.5rem 0.6rem', 
               borderRadius: '6px', 
               cursor: 'pointer', 
               fontWeight: 'bold', 
@@ -422,29 +471,30 @@ export default function App() {
       </div>
 
       {/* Tarjetas Superiores */}
-      <div style={{ display: 'grid', gridTemplateColumns: esMovil ? '1fr' : 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.8rem', marginBottom: '1.5rem' }}>
-        <div style={{ background: '#eff6ff', padding: '1rem', borderRadius: '10px', border: '1px solid #bfdbfe' }}>
-          <h4 style={{ margin: '0 0 0.3rem 0', color: '#1e40af', fontSize: '0.9rem' }}>🛍️ Total Vendido</h4>
-          <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#1e3a8a' }}>${totalVendido.toLocaleString()}</span>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.8rem', marginBottom: '1.2rem' }}>
+        <div style={{ background: '#eff6ff', padding: '0.9rem', borderRadius: '10px', border: '1px solid #bfdbfe', boxSizing: 'border-box' }}>
+          <h4 style={{ margin: '0 0 0.2rem 0', color: '#1e40af', fontSize: '0.85rem' }}>🛍️ Total Vendido</h4>
+          <span style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#1e3a8a' }}>${totalVendido.toLocaleString()}</span>
         </div>
 
-        <div style={{ background: '#fef3c7', padding: '1rem', borderRadius: '10px', border: '1px solid #fcd34d' }}>
-          <h4 style={{ margin: '0 0 0.3rem 0', color: '#b45309', fontSize: '0.9rem' }}>🛒 Total Base (Costo)</h4>
-          <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#92400e' }}>${Math.round(totalBase).toLocaleString()}</span>
+        <div style={{ background: '#fef3c7', padding: '0.9rem', borderRadius: '10px', border: '1px solid #fcd34d', boxSizing: 'border-box' }}>
+          <h4 style={{ margin: '0 0 0.2rem 0', color: '#b45309', fontSize: '0.85rem' }}>🛒 Total Base (Costo)</h4>
+          <span style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#92400e' }}>${Math.round(totalBase).toLocaleString()}</span>
         </div>
 
-        <div style={{ background: '#d1fae5', padding: '1rem', borderRadius: '10px', border: '1px solid #6ee7b7' }}>
-          <h4 style={{ margin: '0 0 0.3rem 0', color: '#047857', fontSize: '0.9rem' }}>📈 Ganancia Total</h4>
-          <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#065f46' }}>${Math.round(gananciaTotal).toLocaleString()}</span>
+        <div style={{ background: '#d1fae5', padding: '0.9rem', borderRadius: '10px', border: '1px solid #6ee7b7', boxSizing: 'border-box' }}>
+          <h4 style={{ margin: '0 0 0.2rem 0', color: '#047857', fontSize: '0.85rem' }}>📈 Ganancia Total</h4>
+          <span style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#065f46' }}>${Math.round(gananciaTotal).toLocaleString()}</span>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: esMovil ? '1fr' : '2.5fr 1fr', gap: '1.5rem' }}>
-        <div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', width: '100%', boxSizing: 'border-box' }}>
+        
+        <div style={{ width: '100%', boxSizing: 'border-box' }}>
           {/* Formulario */}
-          <div style={{ background: productoEditando ? '#fffbebf0' : '#f9fafb', padding: '0.8rem', borderRadius: '8px', marginBottom: '1.2rem', border: productoEditando ? '2px solid #f59e0b' : '1px solid #e5e7eb' }}>
+          <div style={{ background: productoEditando ? '#fffbebf0' : '#f9fafb', padding: '0.8rem', borderRadius: '8px', marginBottom: '1.2rem', border: productoEditando ? '2px solid #f59e0b' : '1px solid #e5e7eb', boxSizing: 'border-box' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-              <h3 style={{ margin: 0, color: productoEditando ? '#b45309' : '#111827', fontSize: '1rem' }}>
+              <h3 style={{ margin: 0, color: productoEditando ? '#b45309' : '#111827', fontSize: '0.95rem' }}>
                 {productoEditando ? '✏️ Editando Producto' : '➕ Registrar Producto'}
               </h3>
               {productoEditando && (
@@ -454,14 +504,14 @@ export default function App() {
               )}
             </div>
 
-            <form onSubmit={handleGuardarProducto} style={{ display: 'grid', gap: '0.5rem', gridTemplateColumns: esMovil ? '1fr' : '1fr 1fr' }}>
-              <input type="text" placeholder="Nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} required style={{ padding: '0.5rem', fontSize: '0.85rem' }} />
+            <form onSubmit={handleGuardarProducto} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', boxSizing: 'border-box' }}>
+              <input type="text" placeholder="Nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} required style={{ padding: '0.5rem', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box' }} />
               
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', width: '100%', boxSizing: 'border-box' }}>
                 <select 
                   value={categoria} 
                   onChange={handleSelectCategoria}
-                  style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #d1d5db', background: '#fff', fontSize: '0.85rem' }}
+                  style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #d1d5db', background: '#fff', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box' }}
                 >
                   <option value="Labiales">💄 Labiales</option>
                   <option value="Sérums">🧪 Sérums</option>
@@ -476,47 +526,59 @@ export default function App() {
                     placeholder="Nueva categoría" 
                     value={nuevaCategoria} 
                     onChange={(e) => setNuevaCategoria(e.target.value)}
-                    style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid #f59e0b', background: '#fffbe3', fontSize: '0.85rem' }}
+                    style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid #f59e0b', background: '#fffbe3', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box' }}
                     required
                   />
                 )}
               </div>
 
-              <input type="number" placeholder="Stock" value={stock} onChange={(e) => setStock(e.target.value)} required style={{ padding: '0.5rem', fontSize: '0.85rem' }} />
-              <input type="number" step="0.01" placeholder="Precio Entrada ($)" value={precioEntrada} onChange={(e) => setPrecioEntrada(e.target.value)} style={{ padding: '0.5rem', fontSize: '0.85rem' }} />
-              <input type="number" step="0.01" placeholder="Precio Salida ($)" value={precioVenta} onChange={(e) => setPrecioVenta(e.target.value)} required style={{ padding: '0.5rem', fontSize: '0.85rem' }} />
-              <input type="text" placeholder="URL de la imagen" value={imagenUrl} onChange={(e) => setImagenUrl(e.target.value)} style={{ gridColumn: esMovil ? 'span 1' : 'span 2', padding: '0.5rem', fontSize: '0.85rem' }} />
-              <textarea placeholder="Descripción breve" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} style={{ gridColumn: esMovil ? 'span 1' : 'span 2', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc', fontSize: '0.85rem' }} rows={2} />
-              <button type="submit" style={{ gridColumn: esMovil ? 'span 1' : 'span 2', background: productoEditando ? '#f59e0b' : '#d97706', color: 'white', padding: '0.6rem', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9rem' }}>
+              <input type="number" placeholder="Stock" value={stock} onChange={(e) => setStock(e.target.value)} required style={{ padding: '0.5rem', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box' }} />
+              <input type="number" step="0.01" placeholder="Precio Entrada ($)" value={precioEntrada} onChange={(e) => setPrecioEntrada(e.target.value)} style={{ padding: '0.5rem', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box' }} />
+              <input type="number" step="0.01" placeholder="Precio Salida ($)" value={precioVenta} onChange={(e) => setPrecioVenta(e.target.value)} required style={{ padding: '0.5rem', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box' }} />
+              <input type="text" placeholder="URL de la imagen" value={imagenUrl} onChange={(e) => setImagenUrl(e.target.value)} style={{ padding: '0.5rem', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box' }} />
+              <textarea placeholder="Descripción breve" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box' }} rows={2} />
+              
+              <button type="submit" style={{ background: productoEditando ? '#f59e0b' : '#d97706', color: 'white', padding: '0.6rem', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9rem', width: '100%', boxSizing: 'border-box' }}>
                 {productoEditando ? '💾 Actualizar' : 'Guardar Producto'}
               </button>
             </form>
           </div>
 
+          {/* NUEVO: Buscador en el Admin para filtrar y editar productos */}
+          <div style={{ marginBottom: '1rem', boxSizing: 'border-box' }}>
+            <h3 style={{ fontSize: '1.05rem', margin: '0 0 0.4rem 0' }}>🔍 Buscar producto para editar ({productosFiltradosAdmin.length})</h3>
+            <input 
+              type="text" 
+              placeholder="Escribe el nombre o categoría a buscar..." 
+              value={busquedaAdmin}
+              onChange={(e) => { setBusquedaAdmin(e.target.value); setPaginaActual(1); }}
+              style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', border: '1px solid #fcd34d', fontSize: '0.9rem', boxSizing: 'border-box' }}
+            />
+          </div>
+
           {/* Catálogo en tarjetas */}
-          <h3 style={{ fontSize: '1.1rem' }}>Catálogo ({productos.length})</h3>
           {loading ? <p style={{ fontSize: '0.85rem' }}>Cargando inventario...</p> : (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: esMovil ? 'repeat(auto-fill, minmax(140px, 1fr))' : 'repeat(auto-fill, minmax(220px, 1fr))', gap: esMovil ? '0.8rem' : '1rem', marginBottom: '1.2rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(135px, 1fr))', gap: '0.6rem', marginBottom: '1rem', width: '100%', boxSizing: 'border-box' }}>
                 {productosActuales.map((p) => {
                   const foto = esUrlValida(p.imagen_url) ? p.imagen_url : IMAGEN_DEFAULT
                   const costo = p.precio_costo || p.precio_entrada || 0
                   const gananciaUnitaria = p.precio_venta - costo
 
                   return (
-                    <div key={p.id} style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '0.6rem', background: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', position: 'relative' }}>
+                    <div key={p.id} style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '0.5rem', background: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', position: 'relative', boxSizing: 'border-box' }}>
                       <button 
                         onClick={() => handleEliminarProducto(p.id, p.nombre)}
-                        style={{ position: 'absolute', top: '8px', right: '8px', background: 'rgba(239, 68, 68, 0.9)', color: 'white', border: 'none', borderRadius: '50%', width: '22px', height: '22px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.75rem', zIndex: 2 }}
+                        style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(239, 68, 68, 0.9)', color: 'white', border: 'none', borderRadius: '50%', width: '20px', height: '20px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.7rem', zIndex: 2 }}
                       >
                         ✕
                       </button>
 
                       <div>
-                        <img src={foto} alt={p.nombre || 'Producto'} onError={(e) => { e.target.onerror = null; e.target.src = IMAGEN_DEFAULT; }} style={{ width: '100%', height: esMovil ? '100px' : '130px', objectFit: 'cover', borderRadius: '6px', marginBottom: '0.4rem' }} />
-                        <h4 style={{ margin: '0 0 0.2rem 0', color: '#1f2937', fontSize: esMovil ? '0.85rem' : '1rem' }}>{p.nombre}</h4>
+                        <img src={foto} alt={p.nombre || 'Producto'} onError={(e) => { e.target.onerror = null; e.target.src = IMAGEN_DEFAULT; }} style={{ width: '100%', height: '100px', objectFit: 'cover', borderRadius: '6px', marginBottom: '0.3rem' }} />
+                        <h4 style={{ margin: '0 0 0.2rem 0', color: '#1f2937', fontSize: '0.8rem', wordBreak: 'break-word' }}>{p.nombre}</h4>
                         
-                        <div style={{ background: '#f9fafb', padding: '0.3rem', borderRadius: '4px', marginBottom: '0.4rem', fontSize: '0.75rem' }}>
+                        <div style={{ background: '#f9fafb', padding: '0.25rem', borderRadius: '4px', marginBottom: '0.3rem', fontSize: '0.7rem' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', color: '#6b7280' }}>
                             <span>Entrada:</span>
                             <span>${costo}</span>
@@ -525,20 +587,20 @@ export default function App() {
                             <span>Salida:</span>
                             <span>${p.precio_venta}</span>
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', color: '#059669', borderTop: '1px dashed #e5e7eb', marginTop: '0.2rem', paddingTop: '0.2rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', color: '#059669', borderTop: '1px dashed #e5e7eb', marginTop: '0.15rem', paddingTop: '0.15rem' }}>
                             <span>Ganancia:</span>
                             <span>+${gananciaUnitaria}</span>
                           </div>
                         </div>
 
-                        <div style={{ fontSize: '0.75rem', color: p.stock <= 0 ? '#dc2626' : p.stock < 3 ? '#d97706' : '#059669', fontWeight: 'bold', marginBottom: '0.4rem' }}>
+                        <div style={{ fontSize: '0.7rem', color: p.stock <= 0 ? '#dc2626' : p.stock < 3 ? '#d97706' : '#059669', fontWeight: 'bold', marginBottom: '0.3rem' }}>
                           {p.stock <= 0 ? '❌ Agotado' : `📦 Stock: ${p.stock}`}
                         </div>
                       </div>
 
-                      <div style={{ display: 'flex', gap: '0.3rem' }}>
-                        <button onClick={() => iniciarEdicion(p)} style={{ flex: 1, background: '#3b82f6', color: 'white', border: 'none', padding: '0.3rem', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.75rem' }}>✏️ Edit</button>
-                        <button onClick={() => agregarAlCarrito(p)} disabled={p.stock <= 0} style={{ flex: 1, background: p.stock <= 0 ? '#9ca3af' : '#10b981', color: 'white', border: 'none', padding: '0.3rem', borderRadius: '4px', cursor: p.stock <= 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '0.75rem' }}>🛒 Vender</button>
+                      <div style={{ display: 'flex', gap: '0.25rem' }}>
+                        <button onClick={() => iniciarEdicion(p)} style={{ flex: 1, background: '#3b82f6', color: 'white', border: 'none', padding: '0.25rem', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.7rem' }}>✏️ Edit</button>
+                        <button onClick={() => agregarAlCarrito(p)} disabled={p.stock <= 0} style={{ flex: 1, background: p.stock <= 0 ? '#9ca3af' : '#10b981', color: 'white', border: 'none', padding: '0.25rem', borderRadius: '4px', cursor: p.stock <= 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '0.7rem' }}>🛒 Vender</button>
                       </div>
                     </div>
                   )
@@ -546,7 +608,7 @@ export default function App() {
               </div>
 
               {totalPaginas > 1 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', fontSize: '0.85rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', fontSize: '0.8rem' }}>
                   <button onClick={() => setPaginaActual((prev) => Math.max(prev - 1, 1))} disabled={paginaActual === 1}>Anterior</button>
                   <span>Pág {paginaActual} / {totalPaginas}</span>
                   <button onClick={() => setPaginaActual((prev) => Math.min(prev + 1, totalPaginas))} disabled={paginaActual === totalPaginas}>Siguiente</button>
@@ -555,10 +617,10 @@ export default function App() {
             </>
           )}
 
-          {/* Tabla de Historial con Desplazamiento Horizontal en Móvil */}
-          <h3 style={{ fontSize: '1.1rem' }}>📋 Historial de Ventas</h3>
-          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', marginBottom: '1.5rem' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '0.5rem', minWidth: '500px', fontSize: '0.85rem' }}>
+          {/* Tabla de Historial con Scroll Horizontal */}
+          <h3 style={{ fontSize: '1.05rem', margin: '1rem 0 0.4rem 0' }}>📋 Historial de Ventas</h3>
+          <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', marginBottom: '1.2rem' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '450px', fontSize: '0.8rem' }}>
               <thead>
                 <tr style={{ background: '#f3f4f6', textAlign: 'left' }}>
                   <th style={{ padding: '0.4rem' }}>Cliente</th>
@@ -582,13 +644,13 @@ export default function App() {
                         <td style={{ padding: '0.4rem', color: '#059669' }}>${v.monto_pagado?.toLocaleString()}</td>
                         <td style={{ padding: '0.4rem', color: debe > 0 ? '#dc2626' : '#10b981', fontWeight: 'bold' }}>${debe > 0 ? debe.toLocaleString() : 0}</td>
                         <td style={{ padding: '0.4rem' }}>
-                          <span style={{ padding: '0.15rem 0.4rem', borderRadius: '4px', fontSize: '0.75rem', color: 'white', fontWeight: 'bold', background: v.estado === 'Pagado' ? '#10b981' : v.estado === 'Abonado' ? '#f59e0b' : '#ef4444' }}>
+                          <span style={{ padding: '0.15rem 0.35rem', borderRadius: '4px', fontSize: '0.7rem', color: 'white', fontWeight: 'bold', background: v.estado === 'Pagado' ? '#10b981' : v.estado === 'Abonado' ? '#f59e0b' : '#ef4444' }}>
                             {v.estado}
                           </span>
                         </td>
                         <td style={{ padding: '0.4rem' }}>
                           {debe > 0 && (
-                            <button onClick={() => registrarAbono(v)} style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '0.2rem 0.4rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>+ Abono</button>
+                            <button onClick={() => registrarAbono(v)} style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '0.2rem 0.35rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem' }}>+ Abono</button>
                           )}
                         </td>
                       </tr>
@@ -600,26 +662,27 @@ export default function App() {
           </div>
         </div>
 
-        {/* Panel Lateral */}
-        <div>
-          <div style={{ background: '#f9fafb', padding: '0.8rem', borderRadius: '8px', marginBottom: '1.2rem', border: '1px solid #e5e7eb' }}>
-            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem' }}>👤 Nuevo Cliente</h3>
-            <form onSubmit={handleAgregarCliente} style={{ display: 'grid', gap: '0.4rem' }}>
-              <input type="text" placeholder="Nombre completo" value={clienteNombre} onChange={(e) => setClienteNombre(e.target.value)} required style={{ padding: '0.4rem', fontSize: '0.85rem' }} />
-              <input type="text" placeholder="Teléfono" value={clienteTelefono} onChange={(e) => setClienteTelefono(e.target.value)} style={{ padding: '0.4rem', fontSize: '0.85rem' }} />
-              <button type="submit" style={{ background: '#2563eb', color: 'white', padding: '0.5rem', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>Guardar Cliente</button>
+        {/* Sección Derecha (Clientes, Fiados, Carrito / Vender) */}
+        <div style={{ width: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+          
+          <div style={{ background: '#f9fafb', padding: '0.8rem', borderRadius: '8px', border: '1px solid #e5e7eb', boxSizing: 'border-box' }}>
+            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '0.95rem' }}>👤 Nuevo Cliente</h3>
+            <form onSubmit={handleAgregarCliente} style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', boxSizing: 'border-box' }}>
+              <input type="text" placeholder="Nombre completo" value={clienteNombre} onChange={(e) => setClienteNombre(e.target.value)} required style={{ padding: '0.4rem', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box' }} />
+              <input type="text" placeholder="Teléfono" value={clienteTelefono} onChange={(e) => setClienteTelefono(e.target.value)} style={{ padding: '0.4rem', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box' }} />
+              <button type="submit" style={{ background: '#2563eb', color: 'white', padding: '0.5rem', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box' }}>Guardar Cliente</button>
             </form>
           </div>
 
-          <div style={{ background: '#fff5f5', border: '1px solid #feb2b2', padding: '0.8rem', borderRadius: '8px', marginBottom: '1.2rem' }}>
-            <h3 style={{ color: '#c53030', margin: '0 0 0.3rem 0', fontSize: '1rem' }}>📌 Fiados / Por Cobrar</h3>
-            <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#9b2c2c', marginBottom: '0.5rem' }}>
+          <div style={{ background: '#fff5f5', border: '1px solid #feb2b2', padding: '0.8rem', borderRadius: '8px', boxSizing: 'border-box' }}>
+            <h3 style={{ color: '#c53030', margin: '0 0 0.3rem 0', fontSize: '0.95rem' }}>📌 Fiados / Por Cobrar</h3>
+            <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#9b2c2c', marginBottom: '0.4rem' }}>
               Total Deuda: ${totalPorCobrar.toLocaleString()}
             </div>
             
-            <div style={{ maxHeight: '150px', overflowY: 'auto' }}>
+            <div style={{ maxHeight: '140px', overflowY: 'auto' }}>
               {ventas.filter(v => (v.total - v.monto_pagado) > 0).length === 0 ? (
-                <p style={{ fontSize: '0.8rem', color: '#718096' }}>🎉 ¡Nadie te debe en este momento!</p>
+                <p style={{ fontSize: '0.75rem', color: '#718096' }}>🎉 ¡Nadie te debe en este momento!</p>
               ) : (
                 ventas.filter(v => (v.total - v.monto_pagado) > 0).map(v => (
                   <div key={v.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.2rem 0', borderBottom: '1px dashed #fed7d7', fontSize: '0.8rem' }}>
@@ -631,8 +694,8 @@ export default function App() {
             </div>
           </div>
 
-          <div style={{ background: '#fff', border: '1px solid #e5e7eb', padding: '0.8rem', borderRadius: '8px' }}>
-            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem' }}>🛒 Vender / Fiar</h3>
+          <div style={{ background: '#fff', border: '1px solid #e5e7eb', padding: '0.8rem', borderRadius: '8px', boxSizing: 'border-box' }}>
+            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '0.95rem' }}>🛒 Vender / Fiar</h3>
             {carrito.length === 0 ? <p style={{ color: '#6b7280', fontSize: '0.85rem' }}>Carrito vacío</p> : (
               <>
                 {carrito.map((i) => (
@@ -642,10 +705,10 @@ export default function App() {
                   </div>
                 ))}
                 <hr />
-                <h4 style={{ margin: '0.5rem 0' }}>Total: ${totalCarrito}</h4>
+                <h4 style={{ margin: '0.4rem 0' }}>Total: ${totalCarrito}</h4>
 
                 <label><small>Asignar Cliente:</small></label>
-                <select value={clienteSeleccionado} onChange={(e) => setClienteSeleccionado(e.target.value)} style={{ width: '100%', marginBottom: '0.4rem', padding: '0.4rem', fontSize: '0.85rem' }}>
+                <select value={clienteSeleccionado} onChange={(e) => setClienteSeleccionado(e.target.value)} style={{ width: '100%', marginBottom: '0.4rem', padding: '0.4rem', fontSize: '0.85rem', boxSizing: 'border-box' }}>
                   <option value="">-- Seleccionar Cliente --</option>
                   {clientes.map((c) => (
                     <option key={c.id} value={c.id}>{c.nombre}</option>
@@ -658,16 +721,18 @@ export default function App() {
                   placeholder="0 (Si es todo fiado)" 
                   value={montoAbonoInicial} 
                   onChange={(e) => setMontoAbonoInicial(e.target.value)}
-                  style={{ width: '100%', marginBottom: '0.8rem', padding: '0.4rem', fontSize: '0.85rem' }}
+                  style={{ width: '100%', marginBottom: '0.8rem', padding: '0.4rem', fontSize: '0.85rem', boxSizing: 'border-box' }}
                 />
 
-                <button onClick={registrarVenta} disabled={procesandoCompra} style={{ width: '100%', background: '#10b981', color: 'white', padding: '0.5rem', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9rem' }}>
+                <button onClick={registrarVenta} disabled={procesandoCompra} style={{ width: '100%', background: '#10b981', color: 'white', padding: '0.5rem', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem', boxSizing: 'border-box' }}>
                   Confirmar Venta
                 </button>
               </>
             )}
           </div>
+
         </div>
+
       </div>
     </div>
   )
