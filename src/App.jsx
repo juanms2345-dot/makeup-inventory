@@ -5,6 +5,8 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
+const BUCKET_PRODUCTOS = 'productos'
+
 const IMAGEN_DEFAULT = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'><rect width='100%' height='100%' fill='%23f3f4f6'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='16' fill='%239ca3af'>Sin Imagen</text></svg>"
 
 const CATEGORIAS_SUGERIDAS = ['Labiales', 'Sérums', 'Cuidado Facial', 'Maquillaje']
@@ -35,6 +37,9 @@ export default function App() {
   const [nuevaCategoria, setNuevaCategoria] = useState('')
   const [esNuevaCategoria, setEsNuevaCategoria] = useState(false)
   const [imagenUrl, setImagenUrl] = useState('')
+  const [archivoImagen, setArchivoImagen] = useState(null)
+  const [vistaPreviaLocal, setVistaPreviaLocal] = useState('')
+  const [subiendoImagen, setSubiendoImagen] = useState(false)
   const [descripcion, setDescripcion] = useState('')
 
   const [clienteNombre, setClienteNombre] = useState('')
@@ -55,6 +60,14 @@ export default function App() {
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
+
+  useEffect(() => {
+    return () => {
+      if (vistaPreviaLocal) {
+        URL.revokeObjectURL(vistaPreviaLocal)
+      }
+    }
+  }, [vistaPreviaLocal])
 
   useEffect(() => {
     const sesionGuardada = localStorage.getItem('yaja_admin_auth')
@@ -125,6 +138,56 @@ export default function App() {
     }
   }
 
+  const handleSeleccionarArchivo = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      alert('Por favor selecciona un archivo de imagen válido.')
+      return
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('La imagen no debe superar los 5 MB.')
+      return
+    }
+
+    if (vistaPreviaLocal) {
+      URL.revokeObjectURL(vistaPreviaLocal)
+    }
+
+    setArchivoImagen(file)
+    setVistaPreviaLocal(URL.createObjectURL(file))
+  }
+
+  const limpiarArchivoSeleccionado = () => {
+    if (vistaPreviaLocal) {
+      URL.revokeObjectURL(vistaPreviaLocal)
+    }
+    setArchivoImagen(null)
+    setVistaPreviaLocal('')
+  }
+
+  const subirImagenAStorage = async (file) => {
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+    const nombreArchivo = `prod_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`
+
+    const { error: uploadError } = await supabase.storage
+      .from(BUCKET_PRODUCTOS)
+      .upload(nombreArchivo, file, {
+        cacheControl: '3600',
+        upsert: false
+      })
+
+    if (uploadError) throw uploadError
+
+    const { data: publicUrlData } = supabase.storage
+      .from(BUCKET_PRODUCTOS)
+      .getPublicUrl(nombreArchivo)
+
+    return publicUrlData.publicUrl
+  }
+
   // NUEVO: Función para descargar reporte de cuentas en CSV (Excel)
   const descargarReporteCSV = () => {
     if (ventas.length === 0) return alert('No hay ventas registradas para exportar.')
@@ -163,6 +226,7 @@ export default function App() {
     }
 
     setImagenUrl(prod.imagen_url || '')
+    limpiarArchivoSeleccionado()
     setDescripcion(prod.descripcion || '')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -177,6 +241,7 @@ export default function App() {
     setNuevaCategoria('')
     setEsNuevaCategoria(false)
     setImagenUrl('')
+    limpiarArchivoSeleccionado()
     setDescripcion('')
   }
 
@@ -196,20 +261,27 @@ export default function App() {
     e.preventDefault()
     if (!nombre || stock === '' || !precioVenta) return alert('Por favor llena los campos requeridos')
 
-    const categoriaFinal = esNuevaCategoria ? (nuevaCategoria.trim() || 'General') : categoria
-    const urlFinal = esUrlValida(imagenUrl) ? imagenUrl : ''
-
-    const datosProducto = {
-      nombre,
-      stock: parseInt(stock),
-      precio_costo: parseFloat(precioEntrada) || 0,
-      precio_venta: parseFloat(precioVenta),
-      categoria: categoriaFinal,
-      imagen_url: urlFinal,
-      descripcion: descripcion || 'Sin descripción disponible'
-    }
+    setSubiendoImagen(true)
 
     try {
+      let urlFinal = esUrlValida(imagenUrl) ? imagenUrl : ''
+
+      if (archivoImagen) {
+        urlFinal = await subirImagenAStorage(archivoImagen)
+      }
+
+      const categoriaFinal = esNuevaCategoria ? (nuevaCategoria.trim() || 'General') : categoria
+
+      const datosProducto = {
+        nombre,
+        stock: parseInt(stock),
+        precio_costo: parseFloat(precioEntrada) || 0,
+        precio_venta: parseFloat(precioVenta),
+        categoria: categoriaFinal,
+        imagen_url: urlFinal,
+        descripcion: descripcion || 'Sin descripción disponible'
+      }
+
       if (productoEditando) {
         const { error } = await supabase
           .from('productos')
@@ -227,9 +299,12 @@ export default function App() {
       fetchProductos()
     } catch (err) {
       alert('Error: ' + err.message)
+    } finally {
+      setSubiendoImagen(false)
     }
   }
-async function handleEliminarProducto(id, nombreProd) {
+
+  async function handleEliminarProducto(id, nombreProd) {
     if (!confirm(`¿Estás seguro de eliminar "${nombreProd}" del catálogo?`)) return
     try {
       const { error } = await supabase.from('productos').delete().eq('id', id)
@@ -242,7 +317,6 @@ async function handleEliminarProducto(id, nombreProd) {
       alert('Error al eliminar producto: ' + err.message)
     }
   }
-  
 
   async function handleReiniciarContadores() {
     const confirmacion = confirm('⚠️ ¿Estás seguro de reiniciar todos los contadores de ventas y ganancias a $0?')
@@ -399,7 +473,6 @@ async function handleEliminarProducto(id, nombreProd) {
   const gananciaTotal = Math.max(totalVendido - totalBase, 0)
   const totalPorCobrar = ventas.reduce((acc, v) => acc + Math.max((v.total || 0) - (v.monto_pagado || 0), 0), 0)
 
-  // Filtrado de productos en el Admin mediante el buscador
   const productosFiltradosAdmin = productos.filter((p) => {
     const nombreProd = p.nombre ? p.nombre.toLowerCase() : ''
     const catProd = p.categoria ? p.categoria.toLowerCase() : ''
@@ -411,13 +484,14 @@ async function handleEliminarProducto(id, nombreProd) {
   const productosActuales = productosFiltradosAdmin.slice(indiceUltimo - productosPorPagina, indiceUltimo)
   const totalPaginas = Math.ceil(productosFiltradosAdmin.length / productosPorPagina) || 1
 
+  const imagenPreviewActual = vistaPreviaLocal || (esUrlValida(imagenUrl) ? imagenUrl : '')
+
   return (
     <div style={{ padding: esMovil ? '0.6rem' : '1.5rem', fontFamily: 'sans-serif', maxWidth: '1200px', margin: '0 auto', minHeight: '100vh', boxSizing: 'border-box', overflowX: 'hidden' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.6rem' }}>
         <h1 style={{ color: '#d97706', margin: 0, fontSize: esMovil ? '1.2rem' : '1.8rem' }}>💄 YAJA MAKEUP - Admin</h1>
         
         <div style={{ display: 'flex', gap: '0.4rem', width: esMovil ? '100%' : 'auto', flexWrap: 'wrap' }}>
-          {/* NUEVO: Botón Descargar Reporte */}
           <button 
             onClick={descargarReporteCSV} 
             style={{ 
@@ -536,16 +610,78 @@ async function handleEliminarProducto(id, nombreProd) {
               <input type="number" placeholder="Stock" value={stock} onChange={(e) => setStock(e.target.value)} required style={{ padding: '0.5rem', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box' }} />
               <input type="number" step="0.01" placeholder="Precio Entrada ($)" value={precioEntrada} onChange={(e) => setPrecioEntrada(e.target.value)} style={{ padding: '0.5rem', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box' }} />
               <input type="number" step="0.01" placeholder="Precio Salida ($)" value={precioVenta} onChange={(e) => setPrecioVenta(e.target.value)} required style={{ padding: '0.5rem', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box' }} />
-              <input type="text" placeholder="URL de la imagen" value={imagenUrl} onChange={(e) => setImagenUrl(e.target.value)} style={{ padding: '0.5rem', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box' }} />
+
+              {/* Selector de imagen desde el computador + URL opcional */}
+              <div style={{ background: '#fff', padding: '0.5rem', borderRadius: '6px', border: '1px dashed #d1d5db', display: 'flex', flexDirection: 'column', gap: '0.4rem', boxSizing: 'border-box' }}>
+                <label style={{ fontSize: '0.78rem', fontWeight: 'bold', color: '#374151' }}>
+                  🖼️ Imagen desde tu computador:
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleSeleccionarArchivo}
+                  style={{ fontSize: '0.8rem', width: '100%', boxSizing: 'border-box' }}
+                />
+
+                {archivoImagen && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: '#047857' }}>
+                    <span>Archivo: {archivoImagen.name}</span>
+                    <button
+                      type="button"
+                      onClick={limpiarArchivoSeleccionado}
+                      style={{ background: '#fee2e2', color: '#b91c1c', border: 'none', padding: '0.15rem 0.4rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem' }}
+                    >
+                      Quitar archivo
+                    </button>
+                  </div>
+                )}
+
+                <input
+                  type="text"
+                  placeholder="O pega una URL de imagen (opcional)"
+                  value={imagenUrl}
+                  onChange={(e) => setImagenUrl(e.target.value)}
+                  style={{ padding: '0.45rem', fontSize: '0.8rem', width: '100%', boxSizing: 'border-box', borderRadius: '4px', border: '1px solid #d1d5db' }}
+                />
+
+                {imagenPreviewActual && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.2rem' }}>
+                    <img
+                      src={imagenPreviewActual}
+                      alt="Vista previa"
+                      style={{ width: '64px', height: '64px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #e5e7eb' }}
+                    />
+                    <span style={{ fontSize: '0.72rem', color: '#6b7280' }}>
+                      {vistaPreviaLocal ? 'Vista previa de nueva imagen (se subirá al guardar)' : 'Imagen actual del producto'}
+                    </span>
+                  </div>
+                )}
+              </div>
+
               <textarea placeholder="Descripción breve" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box' }} rows={2} />
               
-              <button type="submit" style={{ background: productoEditando ? '#f59e0b' : '#d97706', color: 'white', padding: '0.6rem', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9rem', width: '100%', boxSizing: 'border-box' }}>
-                {productoEditando ? '💾 Actualizar' : 'Guardar Producto'}
+              <button
+                type="submit"
+                disabled={subiendoImagen}
+                style={{
+                  background: subiendoImagen ? '#9ca3af' : (productoEditando ? '#f59e0b' : '#d97706'),
+                  color: 'white',
+                  padding: '0.6rem',
+                  border: 'none',
+                  borderRadius: '4px',
+                  fontWeight: 'bold',
+                  cursor: subiendoImagen ? 'not-allowed' : 'pointer',
+                  fontSize: '0.9rem',
+                  width: '100%',
+                  boxSizing: 'border-box'
+                }}
+              >
+                {subiendoImagen ? '⏳ Subiendo imagen...' : (productoEditando ? '💾 Actualizar' : 'Guardar Producto')}
               </button>
             </form>
           </div>
 
-          {/* NUEVO: Buscador en el Admin para filtrar y editar productos */}
+          {/* Buscador en el Admin para filtrar y editar productos */}
           <div style={{ marginBottom: '1rem', boxSizing: 'border-box' }}>
             <h3 style={{ fontSize: '1.05rem', margin: '0 0 0.4rem 0' }}>🔍 Buscar producto para editar ({productosFiltradosAdmin.length})</h3>
             <input 
@@ -669,71 +805,64 @@ async function handleEliminarProducto(id, nombreProd) {
           <div style={{ background: '#f9fafb', padding: '0.8rem', borderRadius: '8px', border: '1px solid #e5e7eb', boxSizing: 'border-box' }}>
             <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '0.95rem' }}>👤 Nuevo Cliente</h3>
             <form onSubmit={handleAgregarCliente} style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', boxSizing: 'border-box' }}>
-              <input type="text" placeholder="Nombre completo" value={clienteNombre} onChange={(e) => setClienteNombre(e.target.value)} required style={{ padding: '0.4rem', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box' }} />
-              <input type="text" placeholder="Teléfono" value={clienteTelefono} onChange={(e) => setClienteTelefono(e.target.value)} style={{ padding: '0.4rem', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box' }} />
-              <button type="submit" style={{ background: '#2563eb', color: 'white', padding: '0.5rem', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box' }}>Guardar Cliente</button>
+              <input type="text" placeholder="Nombre del cliente" value={clienteNombre} onChange={(e) => setClienteNombre(e.target.value)} required style={{ padding: '0.45rem', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box' }} />
+              <input type="text" placeholder="Teléfono (opcional)" value={clienteTelefono} onChange={(e) => setClienteTelefono(e.target.value)} style={{ padding: '0.45rem', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box' }} />
+              <button type="submit" style={{ background: '#3b82f6', color: 'white', padding: '0.5rem', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>Guardar Cliente</button>
             </form>
           </div>
 
-          <div style={{ background: '#fff5f5', border: '1px solid #feb2b2', padding: '0.8rem', borderRadius: '8px', boxSizing: 'border-box' }}>
-            <h3 style={{ color: '#c53030', margin: '0 0 0.3rem 0', fontSize: '0.95rem' }}>📌 Fiados / Por Cobrar</h3>
-            <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#9b2c2c', marginBottom: '0.4rem' }}>
-              Total Deuda: ${totalPorCobrar.toLocaleString()}
-            </div>
-            
-            <div style={{ maxHeight: '140px', overflowY: 'auto' }}>
-              {ventas.filter(v => (v.total - v.monto_pagado) > 0).length === 0 ? (
-                <p style={{ fontSize: '0.75rem', color: '#718096' }}>🎉 ¡Nadie te debe en este momento!</p>
-              ) : (
-                ventas.filter(v => (v.total - v.monto_pagado) > 0).map(v => (
-                  <div key={v.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.2rem 0', borderBottom: '1px dashed #fed7d7', fontSize: '0.8rem' }}>
-                    <span>{v.clientes?.nombre || 'Cliente'}:</span>
-                    <strong style={{ color: '#e53e3e' }}>${(v.total - v.monto_pagado).toLocaleString()}</strong>
-                  </div>
-                ))
-              )}
+          <div style={{ background: '#fffbeb', padding: '0.8rem', borderRadius: '8px', border: '1px solid #fde68a', boxSizing: 'border-box' }}>
+            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '0.95rem', color: '#b45309' }}>🛒 Carrito / Registrar Venta</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+              <select
+                value={clienteSeleccionado}
+                onChange={(e) => setClienteSeleccionado(e.target.value)}
+                style={{ padding: '0.45rem', fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #d1d5db', background: '#fff' }}
+              >
+                <option value="">Selecciona un cliente...</option>
+                {clientes.map((c) => (
+                  <option key={c.id} value={c.id}>{c.nombre}</option>
+                ))}
+              </select>
+
+              <input
+                type="number"
+                placeholder="Abono inicial ($)"
+                value={montoAbonoInicial}
+                onChange={(e) => setMontoAbonoInicial(e.target.value)}
+                style={{ padding: '0.45rem', fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #d1d5db' }}
+              />
+
+              <div style={{ fontSize: '0.8rem', color: '#374151' }}>
+                Productos en carrito: <strong>{carrito.reduce((s, i) => s + i.cantidad, 0)}</strong> — Total: <strong>${totalCarrito.toLocaleString()}</strong>
+              </div>
+
+              <button
+                type="button"
+                onClick={registrarVenta}
+                disabled={procesandoCompra || carrito.length === 0}
+                style={{
+                  background: (procesandoCompra || carrito.length === 0) ? '#9ca3af' : '#059669',
+                  color: 'white',
+                  padding: '0.55rem',
+                  border: 'none',
+                  borderRadius: '4px',
+                  fontWeight: 'bold',
+                  cursor: (procesandoCompra || carrito.length === 0) ? 'not-allowed' : 'pointer',
+                  fontSize: '0.85rem'
+                }}
+              >
+                {procesandoCompra ? 'Procesando...' : 'Confirmar Venta'}
+              </button>
             </div>
           </div>
 
-          <div style={{ background: '#fff', border: '1px solid #e5e7eb', padding: '0.8rem', borderRadius: '8px', boxSizing: 'border-box' }}>
-            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '0.95rem' }}>🛒 Vender / Fiar</h3>
-            {carrito.length === 0 ? <p style={{ color: '#6b7280', fontSize: '0.85rem' }}>Carrito vacío</p> : (
-              <>
-                {carrito.map((i) => (
-                  <div key={i.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem', fontSize: '0.85rem' }}>
-                    <span>{i.nombre} ({i.cantidad})</span>
-                    <span>${i.cantidad * i.precio_venta}</span>
-                  </div>
-                ))}
-                <hr />
-                <h4 style={{ margin: '0.4rem 0' }}>Total: ${totalCarrito}</h4>
-
-                <label><small>Asignar Cliente:</small></label>
-                <select value={clienteSeleccionado} onChange={(e) => setClienteSeleccionado(e.target.value)} style={{ width: '100%', marginBottom: '0.4rem', padding: '0.4rem', fontSize: '0.85rem', boxSizing: 'border-box' }}>
-                  <option value="">-- Seleccionar Cliente --</option>
-                  {clientes.map((c) => (
-                    <option key={c.id} value={c.id}>{c.nombre}</option>
-                  ))}
-                </select>
-
-                <label><small>Monto Abonado ($):</small></label>
-                <input 
-                  type="number" 
-                  placeholder="0 (Si es todo fiado)" 
-                  value={montoAbonoInicial} 
-                  onChange={(e) => setMontoAbonoInicial(e.target.value)}
-                  style={{ width: '100%', marginBottom: '0.8rem', padding: '0.4rem', fontSize: '0.85rem', boxSizing: 'border-box' }}
-                />
-
-                <button onClick={registrarVenta} disabled={procesandoCompra} style={{ width: '100%', background: '#10b981', color: 'white', padding: '0.5rem', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem', boxSizing: 'border-box' }}>
-                  Confirmar Venta
-                </button>
-              </>
-            )}
+          <div style={{ background: '#fef2f2', padding: '0.8rem', borderRadius: '8px', border: '1px solid #fecaca', boxSizing: 'border-box' }}>
+            <h4 style={{ margin: '0 0 0.2rem 0', color: '#991b1b', fontSize: '0.85rem' }}>💳 Total por Cobrar (Fiados)</h4>
+            <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#b91c1c' }}>${totalPorCobrar.toLocaleString()}</span>
           </div>
 
         </div>
-
       </div>
     </div>
   )
