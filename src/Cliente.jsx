@@ -7,6 +7,55 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 const IMAGEN_DEFAULT = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'><rect width='100%' height='100%' fill='%23fef3c7'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='16' fill='%23d97706'>YAJA MAKEUP</text></svg>"
 
+function ManualUsuarioClienteFlotante() {
+  const [abierto, setAbierto] = useState(false)
+
+  return (
+    <div style={{ position: 'fixed', bottom: '15px', right: '15px', zIndex: 9999 }}>
+      <button
+        onClick={() => setAbierto(!abierto)}
+        style={{
+          background: '#d97706',
+          color: 'white',
+          border: 'none',
+          padding: '0.6rem 1rem',
+          borderRadius: '25px',
+          fontWeight: 'bold',
+          cursor: 'pointer',
+          boxShadow: '0 4px 10px rgba(0,0,0,0.2)',
+          fontSize: '0.85rem'
+        }}
+      >
+        {abierto ? '✖ Cerrar Manual' : '📖 Manual de Usuario'}
+      </button>
+
+      {abierto && (
+        <div style={{
+          position: 'fixed',
+          bottom: '60px',
+          right: '15px',
+          width: '90%',
+          maxWidth: '350px',
+          maxHeight: '400px',
+          overflowY: 'auto',
+          background: '#fff',
+          border: '1px solid #fcd34d',
+          borderRadius: '12px',
+          padding: '1rem',
+          boxShadow: '0 5px 20px rgba(0,0,0,0.2)',
+          fontSize: '0.8rem',
+          color: '#374151'
+        }}>
+          <h3 style={{ color: '#d97706', margin: '0 0 0.5rem 0' }}>📖 Manual del Cliente</h3>
+          <p><strong>1. Buscar:</strong> Usa la barra superior o los botones de categorías para filtrar productos.</p>
+          <p><strong>2. Carrito:</strong> Presiona en "🛒 Agregar" para sumar artículos a tu pedido respetando el stock disponible.</p>
+          <p><strong>3. Pedido por WhatsApp:</strong> En la sección del pedido, haz clic en "📲 Enviar Pedido por WhatsApp" para enviar tu solicitud directamente.</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Cliente() {
   const [productos, setProductos] = useState([])
   const [loading, setLoading] = useState(true)
@@ -47,11 +96,6 @@ export default function Cliente() {
     return () => { isSubscribed = false }
   }, [])
 
-  const fetchProductosManual = async () => {
-    const { data } = await supabase.from('productos').select('*').order('id', { ascending: false })
-    setProductos(data || [])
-  }
-
   const esUrlValida = (string) => {
     if (!string) return false
     try {
@@ -79,58 +123,25 @@ export default function Cliente() {
 
   const totalCarrito = carrito.reduce((t, i) => t + i.precio_venta * i.cantidad, 0)
 
-  const enviarPedidoWhatsApp = async () => {
+  const enviarPedidoWhatsApp = () => {
     if (carrito.length === 0) return
     setEnviando(true)
 
     try {
-      for (const item of carrito) {
-        const nuevoStock = Math.max(item.stock - item.cantidad, 0)
-        await supabase
-          .from('productos')
-          .update({ stock: nuevoStock })
-          .eq('id', item.id)
-      }
-
-      let clienteId = null
-      const { data: clientesWeb } = await supabase
-        .from('clientes')
-        .select('id')
-        .eq('nombre', 'Cliente Web / WhatsApp')
-        .limit(1)
-
-      if (clientesWeb && clientesWeb.length > 0) {
-        clienteId = clientesWeb[0].id
-      } else {
-        const { data: nuevoCli } = await supabase
-          .from('clientes')
-          .insert([{ nombre: 'Cliente Web / WhatsApp', telefono: 'Online' }])
-          .select('id')
-          .single()
-        if (nuevoCli) clienteId = nuevoCli.id
-      }
-
-      if (clienteId) {
-        await supabase.from('ventas').insert([
-          { cliente_id: clienteId, total: totalCarrito, monto_pagado: totalCarrito, estado: 'Pagado' }
-        ])
-      }
-
       let mensaje = '✨ *NUEVO PEDIDO EN YAJA MAKEUP* ✨\n\n'
       carrito.forEach((item) => {
-        mensaje += `• ${item.nombre} x${item.cantidad} - $${item.precio_venta * item.cantidad}\n`
+        mensaje += `• ${item.nombre} x${item.cantidad} - $${(item.precio_venta * item.cantidad).toLocaleString()}\n`
       })
-      mensaje += `\n💰 *Total a Pagar:* $${totalCarrito}\n`
+      mensaje += `\n💰 *Total a Pagar:* $${totalCarrito.toLocaleString()}\n`
       mensaje += '\n¡Hola! Me gustaría confirmar este pedido.'
 
       // REEMPLAZA ESTE NÚMERO POR TU WHATSAPP CON CÓDIGO DE COLOMBIA (57)
       const urlWhatsApp = `https://api.whatsapp.com/send?phone=573209038396&text=${encodeURIComponent(mensaje)}`
       
       setCarrito([])
-      await fetchProductosManual()
       window.open(urlWhatsApp, '_blank')
     } catch (err) {
-      alert('Error al procesar el pedido: ' + err.message)
+      alert('Error al abrir WhatsApp: ' + err.message)
     } finally {
       setEnviando(false)
     }
@@ -148,16 +159,6 @@ export default function Cliente() {
   const indiceUltimo = paginaActual * productosPorPagina
   const productosPaginados = productosFiltrados.slice(indiceUltimo - productosPorPagina, indiceUltimo)
 
-  const handleCambioCategoria = (cat) => {
-    setCategoriaSeleccionada(cat)
-    setPaginaActual(1)
-  }
-
-  const handleCambioBusqueda = (e) => {
-    setBusqueda(e.target.value)
-    setPaginaActual(1)
-  }
-
   return (
     <div style={{ padding: esMovil ? '0.8rem' : '1.5rem', fontFamily: 'sans-serif', maxWidth: '1100px', margin: '0 auto', background: '#fffcf8', minHeight: '100vh', boxSizing: 'border-box' }}>
       <header style={{ textAlign: 'center', marginBottom: '1rem', borderBottom: '2px solid #fef3c7', paddingBottom: '0.8rem' }}>
@@ -165,23 +166,21 @@ export default function Cliente() {
         <p style={{ color: '#6b7280', margin: 0, fontSize: esMovil ? '0.85rem' : '1rem' }}>Encuentra tus productos favoritos de belleza</p>
       </header>
 
-      {/* Buscador */}
       <div style={{ marginBottom: '1rem' }}>
         <input 
           type="text" 
           placeholder="🔍 Buscar labial, sérum, tónico..." 
           value={busqueda} 
-          onChange={handleCambioBusqueda}
+          onChange={(e) => { setBusqueda(e.target.value); setPaginaActual(1); }}
           style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #fcd34d', fontSize: '1rem', boxSizing: 'border-box' }}
         />
       </div>
 
-      {/* Filtro por Categorías (Scroll horizontal en móvil) */}
       <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem', marginBottom: '1.2rem', WebkitOverflowScrolling: 'touch' }}>
         {categoriasUnicas.map((cat) => (
           <button
             key={cat}
-            onClick={() => handleCambioCategoria(cat)}
+            onClick={() => { setCategoriaSeleccionada(cat); setPaginaActual(1); }}
             style={{
               padding: '0.4rem 0.8rem',
               borderRadius: '20px',
@@ -200,9 +199,7 @@ export default function Cliente() {
         ))}
       </div>
 
-      {/* Grid Adaptable: En móvil 1 columna, en PC 2 columnas */}
       <div style={{ display: 'grid', gridTemplateColumns: esMovil ? '1fr' : '2.5fr 1fr', gap: '1.5rem' }}>
-        {/* Catálogo */}
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <h3 style={{ margin: 0, fontSize: esMovil ? '1.1rem' : '1.3rem' }}>
@@ -230,10 +227,7 @@ export default function Cliente() {
                         <img 
                           src={foto} 
                           alt={p.nombre || 'Producto'} 
-                          onError={(e) => { 
-                            e.target.onerror = null; 
-                            e.target.src = IMAGEN_DEFAULT; 
-                          }} 
+                          onError={(e) => { e.target.onerror = null; e.target.src = IMAGEN_DEFAULT; }} 
                           style={{ width: '100%', height: esMovil ? '110px' : '140px', objectFit: 'cover', borderRadius: '8px', marginBottom: '0.4rem' }} 
                         />
                         <h4 style={{ margin: '0 0 0.2rem 0', color: '#1f2937', fontSize: esMovil ? '0.9rem' : '1rem' }}>{p.nombre}</h4>
@@ -277,22 +271,12 @@ export default function Cliente() {
                 })}
               </div>
 
-              {/* Botones Paginación */}
               {totalPaginas > 1 && (
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.8rem', marginTop: '1.2rem' }}>
                   <button
                     onClick={() => setPaginaActual((prev) => Math.max(prev - 1, 1))}
                     disabled={paginaActual === 1}
-                    style={{
-                      padding: '0.4rem 0.8rem',
-                      borderRadius: '6px',
-                      border: '1px solid #fcd34d',
-                      background: paginaActual === 1 ? '#f3f4f6' : '#fff',
-                      color: paginaActual === 1 ? '#9ca3af' : '#d97706',
-                      cursor: paginaActual === 1 ? 'not-allowed' : 'pointer',
-                      fontWeight: 'bold',
-                      fontSize: '0.85rem'
-                    }}
+                    style={{ padding: '0.4rem 0.8rem', borderRadius: '6px', border: '1px solid #fcd34d', background: paginaActual === 1 ? '#f3f4f6' : '#fff', color: paginaActual === 1 ? '#9ca3af' : '#d97706', cursor: paginaActual === 1 ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
                   >
                     ◀ Ant
                   </button>
@@ -304,16 +288,7 @@ export default function Cliente() {
                   <button
                     onClick={() => setPaginaActual((prev) => Math.min(prev + 1, totalPaginas))}
                     disabled={paginaActual === totalPaginas}
-                    style={{
-                      padding: '0.4rem 0.8rem',
-                      borderRadius: '6px',
-                      border: '1px solid #fcd34d',
-                      background: paginaActual === totalPaginas ? '#f3f4f6' : '#fff',
-                      color: paginaActual === totalPaginas ? '#9ca3af' : '#d97706',
-                      cursor: paginaActual === totalPaginas ? 'not-allowed' : 'pointer',
-                      fontWeight: 'bold',
-                      fontSize: '0.85rem'
-                    }}
+                    style={{ padding: '0.4rem 0.8rem', borderRadius: '6px', border: '1px solid #fcd34d', background: paginaActual === totalPaginas ? '#f3f4f6' : '#fff', color: paginaActual === totalPaginas ? '#9ca3af' : '#d97706', cursor: paginaActual === totalPaginas ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
                   >
                     Sig ▶
                   </button>
@@ -323,7 +298,6 @@ export default function Cliente() {
           )}
         </div>
 
-        {/* Carrito de Compras */}
         <div style={{ background: '#fff', border: '1px solid #fef3c7', padding: '1rem', borderRadius: '12px', height: 'fit-content', position: esMovil ? 'relative' : 'sticky', top: '1rem' }}>
           <h3 style={{ margin: '0 0 0.8rem 0', fontSize: '1.1rem' }}>🛍️ Mi Pedido</h3>
           {carrito.length === 0 ? <p style={{ color: '#9ca3af', fontSize: '0.85rem' }}>No has seleccionado productos aún.</p> : (
@@ -344,12 +318,14 @@ export default function Cliente() {
                 disabled={enviando}
                 style={{ width: '100%', background: enviando ? '#6b7280' : '#25D366', color: 'white', padding: '0.7rem', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.95rem', cursor: enviando ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
               >
-                {enviando ? 'Procesando...' : '📲 Enviar Pedido por WhatsApp'}
+                {enviando ? 'Abriendo WhatsApp...' : '📲 Enviar Pedido por WhatsApp'}
               </button>
             </>
           )}
         </div>
       </div>
+
+      <ManualUsuarioClienteFlotante />
     </div>
   )
 }
